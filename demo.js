@@ -1,7 +1,7 @@
 
 import {cases as base} from './cases.js';
 import {extraCases} from './extra-cases.js';
-import {patientReply} from './engine.js';
+import {naturalReply} from './conversation.js';
 import {VoiceRoom} from './voice.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
@@ -131,8 +131,9 @@ function refresh(){
  const cs=$('#observers');if(cs)cs.innerHTML='<div class="eyebrow">CONSULTANTS OBSERVING</div>'+info().map(o=>'<p style="font-size:12px"><strong>'+esc(o.name)+'</strong><br><span class="muted">'+esc(o.role)+'</span><br><span class="muted">'+esc(o.summary)+'</span></p>').join('')+'<p class="footnote">Educational observations only. These are not live human examiners.</p>';
 }
 function typedReply(text){
- const answer=patientReply(c(),text).text;
- return answer.startsWith('[Simulator')?'I am not sure about that, doctor. Could you ask me in a different way?':answer;
+ // The same context-aware case dialogue is used by microphone and keyboard.
+ // Only the authored patient fact bank may supply clinical history.
+ return naturalReply(c(),text,r().messages).text;
 }
 function askTyped(){
  const input=$('#typed'),q=input.value.trim();if(!q)return;
