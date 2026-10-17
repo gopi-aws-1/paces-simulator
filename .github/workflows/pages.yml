@@ -25,7 +25,7 @@ jobs:
       - name: Assemble static site
         run: |
           mkdir -p _site/assets
-          cp index.html demo.css demo.js conversation.js style.css app.js engine.js cases.js extra-cases.js voice.js examiner.js _site/
+          cp index.html demo.css demo.js avatar.js speaker.js patient-style.js conversation.js style.css app.js engine.js cases.js extra-cases.js voice.js examiner.js _site/
           cp assets/patients.png _site/assets/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
