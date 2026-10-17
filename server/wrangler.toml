@@ -6,6 +6,7 @@ compatibility_date = "2026-10-17"
 ALLOWED_ORIGIN = "https://gopi-aws-1.github.io"
 REALTIME_MODEL = "gpt-realtime-2.1"
 ASSESSOR_MODEL = "gpt-5-mini"
+SPEECH_MODEL = "gpt-4o-mini-tts"
 
 [[ratelimits]]
 name = "API_LIMITER"
