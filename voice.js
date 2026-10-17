@@ -1,7 +1,9 @@
+import {PatientSpeaker} from './speaker.js';
 /* Live audio controller. No API keys are stored or accepted in the browser. */
 export class VoiceRoom {
- constructor({onStatus,onCandidate,onPatient}){
-  this.onStatus=onStatus;this.onCandidate=onCandidate;this.onPatient=onPatient;
+ constructor({onStatus,onCandidate,onPatient,onSpeaking=()=>{},speaker=null}){
+  this.onStatus=onStatus;this.onCandidate=onCandidate;this.onPatient=onPatient;this.onSpeaking=onSpeaking;
+  this.speaker=speaker||new PatientSpeaker({onSpeaking,onStatus});this.ownSpeaker=!speaker;this.caseRecord=null;
   this.mode=null;this.pc=null;this.dc=null;this.stream=null;this.audio=null;
   this.recognition=null;this.speech=null;this.active=false;this.reply=null;
  }
@@ -17,7 +19,7 @@ export class VoiceRoom {
    if(!this.active)throw Error('Connection cancelled.');
    const pc=new RTCPeerConnection();this.pc=pc;
    const audio=document.createElement('audio');audio.autoplay=true;audio.setAttribute('playsinline','');this.audio=audio;
-   pc.ontrack=e=>{audio.srcObject=e.streams[0];audio.play().catch(()=>this.status('Tap the screen to allow patient audio playback.'));};
+   pc.ontrack=e=>{audio.srcObject=e.streams[0];audio.onplaying=()=>this.onSpeaking(true);audio.onpause=()=>this.onSpeaking(false);audio.play().catch(()=>this.status('Tap the screen to allow patient audio playback.'));};
    this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
    if(!this.active)throw Error('Connection cancelled.');
    pc.addTrack(this.stream.getAudioTracks()[0],this.stream);
@@ -43,22 +45,17 @@ export class VoiceRoom {
   this.stop();
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R||!('speechSynthesis' in window))throw Error('Hands-free browser speech is unavailable here. Try Chrome or Edge, or type your questions.');
-  this.mode='browser';this.reply=answer;this.active=true;
+  this.mode='browser';this.caseRecord=caseRecord;this.reply=answer;this.active=true;
   this.status('Scripted browser voice is ready. This mode does not use an AI patient.');
   this.say(caseRecord.opening,()=>this.listen());
  }
  say(text,done){
   if(!this.active)return;
-  window.speechSynthesis.cancel();
-  const utterance=new SpeechSynthesisUtterance(text);
-  utterance.lang='en-GB';utterance.rate=0.94;
-  const voices=window.speechSynthesis.getVoices();const british=voices.find(v=>v.lang.toLowerCase()==='en-gb');
-  if(british)utterance.voice=british;
-  utterance.onend=()=>{if(this.active)done?.();};
-  utterance.onerror=()=>{if(this.active)done?.();};
-  this.speech=utterance;window.speechSynthesis.speak(utterance);
+  // The same female/male voice profile is used for typed and microphone
+  // conversations. Do not restart recognition until speech has finished.
+  this.speaker.speak(text,{patient:this.caseRecord,done:()=>{if(this.active)done?.();}});
  }
- listen(){
+  listen(){
   if(!this.active||this.mode!=='browser')return;
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   const recognition=new R();this.recognition=recognition;
@@ -89,6 +86,8 @@ export class VoiceRoom {
   try{this.dc?.close();}catch{}this.dc=null;
   try{this.pc?.close();}catch{}this.pc=null;
   try{this.stream?.getTracks().forEach(t=>t.stop());}catch{}this.stream=null;
+  if(this.ownSpeaker)this.speaker.stop();
+  this.onSpeaking(false);
   if(this.audio){this.audio.srcObject=null;this.audio.remove();this.audio=null;}
  }
 }
