@@ -168,6 +168,28 @@ function backup(c,q,h){
   'I do not want to guess about that. '+fact
  ][(i+c.id)%5];
 }
+
+/* Follow-up details are drawn from the same fictional record so "tell me
+ * more" continues the story instead of falling back to a stock response. */
+const ELABORATIONS={
+ 0:[['cough','My cough has lasted about six weeks, and I have lost some weight. But what really worries me is what the scan showed.'],['shadow','I was only told it was a shadow. I would really like to know whether I should be worried about cancer.']],
+ 1:[['breath','I used to manage hills more easily. This has crept up over the past year, and I also have a dry cough.']],
+ 2:[['chest','I first felt it about four hours ago. Taking a breath makes the right-sided pain sharper.'],['calf','The left calf has been sore and more swollen for two days, before the chest pain began.']],
+ 3:[['stairs','I have been told for years that I have a heart murmur, but recently the stairs have become harder.']],
+ 4:[['shaking','It started in my right hand about eighteen months ago, and everyday things like getting dressed take longer.']],
+ 5:[['mother','She has dementia. I normally organise her food and medicines, and our neighbour cannot stay with her tonight.']],
+ 6:[['swollen','It has been getting larger over about a month. It feels tight, although I have not had abdominal pain today.']],
+ 7:[['joint','It is my wrists and knuckles on both hands. I am stiff for about ninety minutes every morning, which makes working difficult.'],['stiff','It eases after I get moving. Holding scissors at work has become difficult.']],
+ 8:[['thirst','I have also been going to the toilet a lot, even at night. This has been going on for about six weeks.']],
+ 9:[['headache','The pain throbs behind my left eye, and bright lights and noise make it worse. I often feel sick too.']]
+};
+function elaborate(c,history){
+ const last=history.filter(m=>m.who==='patient').at(-1)?.text?.toLowerCase()||'';
+ for(const [term,answer] of ELABORATIONS[c.id]||[])if(last.includes(term)&&!last.includes(answer.toLowerCase().slice(0,28)))return answer;
+ const next=c.dialogue.find(d=>!history.some(m=>m.who==='patient'&&m.text===d.answer));
+ return next?.answer||'That is as much as I know about it for now, doctor.';
+}
+
 const result=(text,topic)=>({text,topics:topic?[topic]:[]});
 export function naturalReply(c,input,history=[]){
  if(!c||!String(input||'').trim())return result('Sorry doctor, could you say that again?');
@@ -210,6 +232,7 @@ export function naturalReply(c,input,history=[]){
 
  if(/^(hi|hello|hey|good morning|good afternoon|good evening|my name is|im doctor|i am doctor|im dr|i am dr)/.test(s))
   return result('Hello, doctor. I am '+name+'. '+c.opening,'Introduction');
+ if(/^(could you |can you )?(tell me more|elaborate|explain a bit more|go on|what do you mean|more about that)/.test(s))return result(elaborate(c,h),'Follow-up');
  if(/what is your name|what should i call you|may i call you/.test(s))
   return result('You can call me '+name+', doctor.','Introduction');
  if(/how are you feeling|how are you today|what brings you|why are you here|what seems to be wrong|how can i help|tell me what happened|tell me about your problem/.test(s))
