@@ -26,7 +26,7 @@ const examples=[
  [6,'How long has your abdomen been swollen?',/month/i],
  [7,'Is it worse first thing in the morning?',/ninety minutes/i],
  [7,'Are you hoping to have a baby?',/next year/i],
- [8,'Are you going to the toilet more often?',/much more often/i],
+ [8,'Are you going to the toilet more often?',/toilet|much more often/i],
  [8,'Does diabetes run in your family?',/dad.*diabetes/i],
  [9,'Did the headache come on suddenly?',/gradually/i],
  [9,'Do bright lights make it worse?',/lights.*noise/i],
