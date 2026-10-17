@@ -5,7 +5,7 @@ export class VoiceRoom {
   this.onStatus=onStatus;this.onCandidate=onCandidate;this.onPatient=onPatient;this.onSpeaking=onSpeaking;
   this.speaker=speaker||new PatientSpeaker({onSpeaking,onStatus});this.ownSpeaker=!speaker;this.caseRecord=null;
   this.mode=null;this.pc=null;this.dc=null;this.stream=null;this.audio=null;
-  this.recognition=null;this.speech=null;this.active=false;this.reply=null;
+  this.recognition=null;this.speech=null;this.active=false;this.reply=null;this.busy=false;
  }
  status(message){this.onStatus(message);}
  async connectAI(endpoint,caseId){
@@ -19,7 +19,7 @@ export class VoiceRoom {
    if(!this.active)throw Error('Connection cancelled.');
    const pc=new RTCPeerConnection();this.pc=pc;
    const audio=document.createElement('audio');audio.autoplay=true;audio.setAttribute('playsinline','');this.audio=audio;
-   pc.ontrack=e=>{audio.srcObject=e.streams[0];audio.onplaying=()=>this.onSpeaking(true);audio.onpause=()=>this.onSpeaking(false);audio.play().catch(()=>this.status('Tap the screen to allow patient audio playback.'));};
+   pc.ontrack=e=>{audio.srcObject=e.streams[0];audio.play().catch(()=>this.status('Tap the screen to allow patient audio playback.'));};
    this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
    if(!this.active)throw Error('Connection cancelled.');
    pc.addTrack(this.stream.getAudioTracks()[0],this.stream);
@@ -31,6 +31,8 @@ export class VoiceRoom {
     let event;try{event=JSON.parse(e.data);}catch{return;}
     if(event.type==='conversation.item.input_audio_transcription.completed'&&event.transcript?.trim())this.onCandidate(event.transcript.trim());
     if(['response.output_audio_transcript.done','response.audio_transcript.done'].includes(event.type)&&event.transcript?.trim())this.onPatient(event.transcript.trim());
+    if(event.type==='response.created')this.onSpeaking(true);
+    if(event.type==='response.done'||event.type==='response.cancelled')this.onSpeaking(false);
     if(event.type==='error')this.status(event.error?.message||'Voice service error. You can reconnect.');
    };
    const offer=await pc.createOffer();await pc.setLocalDescription(offer);
@@ -63,14 +65,14 @@ export class VoiceRoom {
   recognition.onresult=async e=>{
    if(!this.active)return;
    const text=e.results?.[0]?.[0]?.transcript?.trim();if(!text)return;
-   this.onCandidate(text);this.status('Patient considering your question…');
+   this.busy=true;this.onCandidate(text);this.status('Patient considering your question…');
    const result=this.reply(text);
    if(!this.active)return;
    this.onPatient(result);
-   this.say(result,()=>this.listen());
+   this.say(result,()=>{this.busy=false;this.listen();});
   };
   recognition.onerror=e=>{if(!this.active)return;if(['not-allowed','service-not-allowed'].includes(e.error)){this.status('Microphone permission denied. Use text instead.');this.stop();}else this.status('Speech recognition: '+e.error+'. Try again if listening stops.');};
-  recognition.onend=()=>{if(!this.active)return;/* Restart after silence, but not while the patient is speaking. */if(!window.speechSynthesis.speaking)setTimeout(()=>{if(this.active&&this.recognition===recognition)this.listen();},400);};
+  recognition.onend=()=>{if(!this.active)return;/* Restart after silence, but not while the patient is speaking. */if(!this.busy&&!window.speechSynthesis.speaking)setTimeout(()=>{if(this.active&&this.recognition===recognition)this.listen();},400);};
   try{recognition.start();this.status('Listening — speak to your patient.');}catch{this.status('Unable to start listening; use text or reconnect.');}
  }
  send(event){if(this.dc?.readyState==='open')this.dc.send(JSON.stringify(event));}
@@ -80,7 +82,7 @@ export class VoiceRoom {
   this.send({type:'response.create'});return true;
  }
  stop(){
-  this.active=false;this.mode=null;
+  this.active=false;this.mode=null;this.busy=false;
   if(this.recognition){const r=this.recognition;this.recognition=null;r.onend=null;r.onresult=null;try{r.abort();}catch{}}
   try{window.speechSynthesis?.cancel();}catch{}
   try{this.dc?.close();}catch{}this.dc=null;
