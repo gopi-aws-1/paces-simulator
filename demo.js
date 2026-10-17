@@ -117,7 +117,7 @@ function encounter(){
  <div id="observers" class="patient-side-panel"></div></aside></div></div>
  <dialog id="examModal"><h3>Examine the patient</h3><p class="muted">Choose a manoeuvre to reveal the simulated clinical finding. Clicks cannot assess physical examination technique.</p><div id="signs" class="finding-list"></div><div class="modal-actions"><button class="btn btn-main" id="closeSigns">Return to patient</button></div></dialog>
  <dialog id="instructionsModal"><h3>Candidate instructions</h3><p>${esc(p.instruction)}</p><div class="modal-actions"><button class="btn btn-main" id="closeInstructions">Back to patient</button></div></dialog>`;
- $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();if(videoCall)disconnectVideo();announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
+ $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();speaker.stop();if(videoCall)disconnectVideo();announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
  $('#examine').onclick=()=>{drawSigns();$('#examModal').showModal();};
  $('#closeSigns').onclick=()=>$('#examModal').close();
  $('#details').onclick=()=>$('#instructionsModal').showModal();$('#closeInstructions').onclick=()=>$('#instructionsModal').close();
@@ -140,7 +140,12 @@ function askTyped(){
  if(videoCall){announce('Live video mode listens inside the video call; speak there.');return;}
  input.value='';log('you',q);
  if(voice?.active&&voice.mode==='ai'){if(!voice.sendText(q))announce('AI connection is not ready. Reconnect or try again.');return;}
- const answer=typedReply(q);log('patient',answer);speak(answer,2);
+ const answer=typedReply(q);log('patient',answer);
+ if(voice?.active&&voice.mode==='browser'){
+  voice.busy=true;
+  try{voice.recognition?.abort();}catch{}
+  speak(answer,2,()=>{if(voice?.active){voice.busy=false;voice.listen();}});
+ }else speak(answer,2);
 }
 async function connect(){
  if(voice?.active||videoCall){announce('Microphone already active. Speak to your patient.');return;}
