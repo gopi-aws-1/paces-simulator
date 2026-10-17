@@ -39,6 +39,29 @@ async function judge(env,c,attempt,focus){
   input:'Review this ORIGINAL SIMULATED case evidence. '+evidence});
  return parseOutput(out)||'Insufficient evidence for a meaningful assessment.';
 }
+async function createVideo(env,c){
+ if(!env.TAVUS_API_KEY||!env.TAVUS_PAL_ID)return {notConfigured:true};
+ let faces={};try{faces=JSON.parse(env.TAVUS_FACE_IDS||'{}');}catch{}
+ const face=faces[String(c.id)];
+ if(!face)return {notConfigured:true};
+ const data={pal_id:env.TAVUS_PAL_ID,face_id:face,require_auth:true,max_participants:2,
+  conversation_name:'PACES Ward fictional patient '+c.id,
+  custom_greeting:c.opening,
+  conversational_context:patientPrompt(c)+'\n\nIMPORTANT: Do not teach, grade or explain the case to the candidate. Stay this specific fictional patient. Respect confidentiality. Respond to the doctor in natural spoken English.'};
+ const res=await fetch('https://tavusapi.com/v2/conversations',{method:'POST',headers:{'x-api-key':env.TAVUS_API_KEY,'Content-Type':'application/json'},body:JSON.stringify(data)});
+ const value=await res.json().catch(()=>({}));
+ if(!res.ok||!value.conversation_url||!value.conversation_id)throw Error('Video provider could not create a conversation ('+res.status+').');
+ const room=new URL(value.conversation_url);
+ if(room.protocol!=='https:'||!/(^|\.)daily\.co$/.test(room.hostname))throw Error('Untrusted video room response');
+ if(value.meeting_token)room.searchParams.set('t',value.meeting_token);
+ return {conversation_url:room.href,conversation_id:value.conversation_id};
+}
+async function endVideo(env,conversationId){
+ if(!env.TAVUS_API_KEY)return;
+ if(!/^c[a-zA-Z0-9_-]{4,100}$/.test(conversationId||''))throw Error('Invalid video session');
+ const res=await fetch('https://tavusapi.com/v2/conversations/'+encodeURIComponent(conversationId)+'/end',{method:'POST',headers:{'x-api-key':env.TAVUS_API_KEY}});
+ if(!res.ok)throw Error('Could not close the video room');
+}
 export default {
  async fetch(request,env){
   const origin=request.headers.get('Origin')||'';
@@ -47,9 +70,8 @@ export default {
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   if(origin!==allowed)return json({error:'Origin not allowed'},403,headers);
   if(request.method!=='POST')return json({error:'Use POST'},405,headers);
-  if(!env.OPENAI_API_KEY)return json({error:'Live AI voice is not yet configured by the site owner.'},503,headers);
   const path=new URL(request.url).pathname.replace(/\/+$/,'');
-  if(!['/token','/evaluate'].includes(path))return json({error:'Not found'},404,headers);
+  if(!['/token','/evaluate','/video/create','/video/end'].includes(path))return json({error:'Not found'},404,headers);
   const length=Number(request.headers.get('content-length')||'0');
   if(length>40000)return json({error:'Request too large'},413,headers);
   if(env.API_LIMITER){
@@ -59,9 +81,17 @@ export default {
   }
   let input;
   try{input=await request.json();}catch{return json({error:'Invalid JSON'},400,headers);}
+  if(path==='/video/end'){
+   try{await endVideo(env,input.conversationId);return json({ended:true},200,headers);}catch(error){return json({error:error.message},502,headers);}
+  }
   const id=Number(input.caseId),c=Number.isInteger(id)?getCase(id):null;
   if(!c)return json({error:'Unknown simulated patient'},400,headers);
   try{
+   if(path==='/video/create'){
+    const value=await createVideo(env,c);
+    return value.notConfigured?json({code:'VIDEO_NOT_CONFIGURED',error:'Patient video avatar not configured.'},503,headers):json(value,200,headers);
+   }
+   if(!env.OPENAI_API_KEY)return json({error:'Live AI voice has not been configured by the site owner.'},503,headers);
    if(path==='/token'){
     const result=await requestOpenAI(env,'realtime/client_secrets',{expires_after:{anchor:'created_at',seconds:60},
      session:{type:'realtime',model:env.REALTIME_MODEL||'gpt-realtime-2.1',instructions:patientPrompt(c),
