@@ -1,6 +1,6 @@
 # PACES Ward
 
-A buildless, responsive PACES23 simulator for GitHub Pages. Eight fictional patient encounters; AI-generated portraits; case-specific scripted patient conversations; optional browser dictation and speech; hidden examination signs; strict wall-clock timing; saved notes; examiner questions and self-review.
+A buildless, responsive PACES23 simulator for GitHub Pages. Eight official-format fictional encounters plus an optional ten-patient drill, two simulated consultant observers, browser voice practice, optional real-time AI speech, examination findings, timing and structured feedback.
 
 ## Run
 
@@ -16,6 +16,22 @@ Serve this directory with any static HTTP server, for example `python3 -m http.s
 4. The workflow tests the timing engine, packages static files and deploys. The URL normally becomes `https://<username>.github.io/paces-simulator/` only after GitHub confirms a successful deployment.
 
 All asset paths are relative, so project subpaths work. No backend, secret key or external runtime dependency is needed. No analytics are installed.
+
+## New: live speech and two consultants
+
+The official PACES format comprises **eight encounters at five stations with two examiners per station**. The default circuit remains unchanged. The optional extended mode provides **ten fictional patients**: two ten-minute encounters in each station, plus five minutes' reading before each. This extra mode is NOT the official format.
+
+During an encounter, click **Start hands-free browser talk**. On supported browsers, your spoken question is recognised and the scripted patient's answer is read aloud. This fallback works on static GitHub Pages without a login, but the replies are not AI-generated and cannot improvise missing medical facts.
+
+For genuine, interruptible, unscripted **AI voice conversations**, deploy the included Cloudflare Worker under server/. It issues short-lived client secrets and connects the browser to OpenAI Realtime over WebRTC. The two on-screen consultants always display separate clinical and communication observations based on logged evidence; when the Worker is configured, two independent AI assessment requests add feedback in the review. These are simulations, not certified PACES examiners or validated scores. Clicking an examination action cannot measure physical technique.
+
+### Enable the secure voice service
+
+1. Create a Cloudflare Workers project and an OpenAI API project with Realtime access and billing. From the server/ directory run 'npx wrangler login', then 'npx wrangler secret put OPENAI_API_KEY', then 'npx wrangler deploy'.
+2. Set ALLOWED_ORIGIN in server/wrangler.toml to the GitHub Pages site's origin. The Worker binds a Cloudflare rate limiter; for public launch, add WAF/Turnstile protections and strict API spend limits. CORS and per-IP rate limiting alone are not enough to prevent abuse.
+3. In PACES Ward, paste the deployed HTTPS Worker URL into the optional voice service URL box and save. **Never paste the OpenAI API key into your browser or GitHub.** Microphone access and the model account must work for real conversation.
+
+GitHub Pages deploys the static frontend only. It does not deploy the Worker or provision credentials. Until the server is configured, the browser speaking mode is scripted. Fictional scenarios only; do not enter real patient details or confidential medical records. Browser speech and AI speech may be processed externally.
 
 ## Timing contract
 
@@ -42,7 +58,11 @@ All typed data remain in localStorage on the device. Session exports download lo
 ## Files
 
 - `engine.js`: pure timeline and dialogue logic.
-- `cases.js`: eight case definitions, signs, patient facts, Q&A and references.
+- `cases.js`: eight official-format fictional cases.
+- `extra-cases.js`: two bonus practice patients.
+- `voice.js`: WebRTC voice and browser hands-free mode.
+- `examiner.js`: two simulated observer lenses.
+- `server/`: secure voice credentials and AI assessment Worker.
 - `app.js`: UI, persistence, countdown, speech and self-review.
 - `style.css`: NHS-inspired blue/white ward design (no official logo).
 - `tests/engine.test.js`: timing boundaries, station structure and content checks.
