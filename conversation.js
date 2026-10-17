@@ -172,6 +172,42 @@ const result=(text,topic)=>({text,topics:topic?[topic]:[]});
 export function naturalReply(c,input,history=[]){
  if(!c||!String(input||'').trim())return result('Sorry doctor, could you say that again?');
  const s=CLEAN(input),h=Array.isArray(history)?history:[],name=c.name.split(' ')[0];
+
+ // Resolve common spoken phrasing before using the fuzzy keyword matcher.
+ // These replies are all restatements of facts authored in the source cases.
+ if(c.id===0&&/(anyone.*(here|with you)|someone.*(here|with you)|accompanied|support person|bring.*husband)/.test(s))
+  return result('My husband is waiting outside. I would like him to be here for this conversation.','Support');
+ if(c.id===5&&/(why.*(leave|go)|need.*(go home|leave)|reason.*leaving)/.test(s))
+  return result('My mother has dementia. I normally give her meals and medicines, but our neighbour cannot stay with her tonight.','Reasons');
+ if(c.id===7&&/(morning|on waking|when you wake up)/.test(s)&&/(stiff|worse|pain|better|last|first)/.test(s))
+  return result('The stiffness is worst first thing in the morning. It lasts around ninety minutes and eases as I get moving.','Stiffness');
+ if(c.id===9&&/(sudden|all at once|thunderclap|worst headache|come on quickly)/.test(s))
+  return result('They gradually build over about an hour, not all at once.','Emergency onset');
+ if(c.id===1&&/(phlegm|sputum|productive cough|any cough)/.test(s))
+  return result('I have a dry cough, doctor. The breathlessness bothers me more.','Cough');
+ if(c.id===2&&/(faint|pass out|lose consciousness|lost consciousness)/.test(s))
+  return result('I have not fainted, but my heart feels like it is racing.','Associated symptoms');
+ if(c.id===9&&/(throw up|vomit|nausea|feel sick)/.test(s))
+  return result('I often feel sick during the headache, and I have vomited once.','Associated features');
+ if(c.id===8&&/(go to the toilet|pee|wee|pass urine|urinating|urination|nocturia)/.test(s))
+  return result('I have been going to the toilet much more often, even a few times overnight.','Symptoms');
+ if(c.id===3&&/(chest pain|tight chest|angina)/.test(s))
+  return result('No chest pain, only breathlessness climbing stairs.','Symptoms');
+ if(c.id===6&&/(vomit.*blood|blood.*vomit|black stool|tarry stool)/.test(s))
+  return result('No, I have not vomited blood or had black stools.','Bleeding');
+ // Standard spoken synonyms can be translated into the corresponding
+ // question about known facts without assuming an answer exists.
+ let query=input;
+ if(/(what do you do|do for a living|occupation|employed)/.test(s))query+=' work job';
+ if(/(did it begin|when did it happen|when did you first notice|how long ago)/.test(s))query+=' onset start';
+ if(/(medical problems before|past illnesses|previous medical conditions)/.test(s))query+=' medical history past';
+ if(/(family history|runs in (the|your) family|anyone in your family)/.test(s))query+=' family';
+ if(/(taking any medication|any tablets|on any treatment)/.test(s))query+=' medicine';
+ if(/(any other problems|other symptoms|anything else physically)/.test(s))query+=' symptoms';
+ if(/(do you use tobacco|ever been a smoker)/.test(s))query+=' smoking';
+ if(/(chance of pregnancy|might you be expecting)/.test(s))query+=' pregnant';
+ if(/(how bad is it|how strong is the pain|pain score)/.test(s))query+=' pain severity';
+
  if(/^(hi|hello|hey|good morning|good afternoon|good evening|my name is|im doctor|i am doctor|im dr|i am dr)/.test(s))
   return result('Hello, doctor. I am '+name+'. '+c.opening,'Introduction');
  if(/what is your name|what should i call you|may i call you/.test(s))
@@ -189,7 +225,7 @@ export function naturalReply(c,input,history=[]){
  if(/^(anything else|is there anything else|any other concerns|have i missed anything)/.test(s))
   return result(h.filter(m=>m.who==='patient').at(-1)?.text===c.concern?'No, that is the main thing worrying me.':c.concern,'Concerns');
  // Exact authored clinical answers take priority over broad category words.
- const direct=authored(c,input),general=scripted(c,input,h);
+ const direct=authored(c,query),general=scripted(c,query,h);
  if(direct&&(!general||direct.n>=general.n||direct.n>=12))return result(direct.answer,'Clinical history');
  if(general&&general.n>=3)return result(general.answer,general.topic);
  if(direct)return result(direct.answer,'Clinical history');
