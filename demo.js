@@ -80,7 +80,7 @@ function playIntro(){
  token++;window.speechSynthesis?.cancel();const n=token;let index=0;
  function next(){
   if(n!==token||session?.stage!=='intro')return;
-  if(index===briefing.length){announce('Briefing complete. Select Meet First Patient to start.');$('#ca').classList.remove('active');$('#cb').classList.remove('active');return;}
+  if(index===briefing.length){announce('Briefing complete. Starting your first patient.');$('#ca').classList.remove('active');$('#cb').classList.remove('active');setTimeout(()=>{if(n===token&&session?.stage==='intro')firstPatient();},900);return;}
   const [who,text]=briefing[index++];
   $('#ca').classList.toggle('active',who==='a');$('#cb').classList.toggle('active',who==='b');
   $('#quote').textContent='“'+text+'”';
