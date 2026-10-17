@@ -1,1 +1,10 @@
-{"name":"paces-ward","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.js","check":"node --check app.js && node --check cases.js && node --check engine.js"}}
+{
+  "name": "paces-ward",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check app.js && node --check cases.js && node --check extra-cases.js && node --check engine.js && node --check voice.js && node --check examiner.js && node --check server/worker.js"
+  }
+}

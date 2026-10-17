@@ -1,13 +1,14 @@
 export const stations=[['Communication','Respiratory'],['Consultation'],['Cardiovascular','Neurology'],['Communication','Abdominal'],['Consultation']];
-export function timeline(practice=null){
+export function timeline(practice=null,extended=false){
  let phases=[]; const add=(station,caseId,type,seconds)=>phases.push({station,caseId,type,seconds});
- const mapping=[[0,1],[2],[3,4],[5,6],[7]];
+ const mapping=(extended||practice>=8)?[[0,1],[2,8],[3,4],[5,6],[7,9]]:[[0,1],[2],[3,4],[5,6],[7]];
  for(let s=0;s<5;s++){
   if(practice!==null&&!mapping[s].includes(practice))continue;
   add(s,mapping[s][0],'reading',300);
   for(const id of mapping[s]){
    if(practice!==null&&id!==practice)continue;
-   if(id===0||id===5)add(s,id,'communication',600);
+   if((extended||id>=8)&&[2,7,8,9].includes(id))add(s,id,'consultation',600);
+   else if(id===0||id===5)add(s,id,'communication',600);
    else if(id===2||id===7){add(s,id,'consultation',900);add(s,id,'questions',300);}
    else{add(s,id,'examination',360);add(s,id,'questions',240);}
   }

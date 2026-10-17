@@ -1,0 +1,15 @@
+name = "paces-ward-voice"
+main = "worker.js"
+compatibility_date = "2026-10-17"
+
+[vars]
+ALLOWED_ORIGIN = "https://gopi-aws-1.github.io"
+REALTIME_MODEL = "gpt-realtime-2.1"
+ASSESSOR_MODEL = "gpt-5-mini"
+
+[[ratelimits]]
+name = "API_LIMITER"
+namespace_id = "10311"
+  [ratelimits.simple]
+  limit = 8
+  period = 60
