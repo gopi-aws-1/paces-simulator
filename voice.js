@@ -88,7 +88,7 @@ export class VoiceRoom {
   try{this.dc?.close();}catch{}this.dc=null;
   try{this.pc?.close();}catch{}this.pc=null;
   try{this.stream?.getTracks().forEach(t=>t.stop());}catch{}this.stream=null;
-  if(this.ownSpeaker)this.speaker.stop();
+  this.speaker.stop();
   this.onSpeaking(false);
   if(this.audio){this.audio.srcObject=null;this.audio.remove();this.audio=null;}
  }
