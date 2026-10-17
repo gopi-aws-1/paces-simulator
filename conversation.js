@@ -215,6 +215,8 @@ export function naturalReply(c,input,history=[]){
   return result('I have been going to the toilet much more often, even a few times overnight.','Symptoms');
  if(c.id===3&&/(chest pain|tight chest|angina)/.test(s))
   return result('No chest pain, only breathlessness climbing stairs.','Symptoms');
+ if(c.id===6&&/(abdomen|stomach|belly|tummy)/.test(s)&&/(swoll|swell|bigger|larger|how long)/.test(s))
+  return result('It has been getting bigger over roughly a month, and it feels tight.','Symptoms');
  if(c.id===6&&/(vomit.*blood|blood.*vomit|black stool|tarry stool)/.test(s))
   return result('No, I have not vomited blood or had black stools.','Bleeding');
  // Standard spoken synonyms can be translated into the corresponding
