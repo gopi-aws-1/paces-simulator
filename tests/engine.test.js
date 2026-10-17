@@ -17,7 +17,7 @@ test('ten-patient extended practice has 10 real-time encounters and 2 consultant
  assert.equal(p.at(-1).end,7500);
  assert.equal(p.filter(x=>x.type==='reading').length,5);
  for(let i=0;i<5;i++)assert.equal(encountered.filter(x=>x.station===i).length,2);
- for(const x of encountered)assert.equal(x.seconds,600);
+ for(const x of encountered){const stationPhases=p.filter(y=>y.caseId===x.caseId&&y.type!=='reading');assert.equal(stationPhases.reduce((sum,y)=>sum+y.seconds,0),600);}
  for(const c of extraCases){assert.ok(c.opening&&c.concern&&c.checklist.length>=6&&c.signs.length>=5&&c.dialogue.length>=10);}
 });
 test('the original official eight encounters remain exactly unchanged',()=>{
