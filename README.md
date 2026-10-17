@@ -2,6 +2,8 @@
 
 **Client demo:** https://gopi-aws-1.github.io/paces-simulator/
 
+**Improved patient conversations:** The browser-only practice engine now recognises more naturally phrased clinical questions and case-specific follow-ups across all ten fictional patients. Answers remain anchored to the authored case histories, so it still cannot generate wholly open-ended, unscripted dialogue; for that, connect the optional secure realtime AI voice service. A personal dedication to Dr. Jyo appears at the top of every screen.
+
 The main app now has just **two choices**: **Start Full Exam** (two consultant audio briefing, then 10 fictional patients in sequence) or **Practise One Case** (pick a patient and start immediately). Its core screen is a patient video area and Start Talking button, not a text-first dashboard. The patient portrait is an animated browser-generated video stream with spoken script fallback. Optional OpenAI real-time audio and Tavus two-way video can be activated with the protected backend documented in [DEMO.md](DEMO.md).
 
 **Status:** The static demo runs without keys on supported browser speech features. Real unscripted AI speech and actual interactive avatar video need a deployed Worker and paid API credentials. The ten-patient route is extra practice; official PACES has eight encounters, five stations and two examiners at each station. Consultants are simulated, not human examiners, and their feedback is not official marking.
