@@ -5,7 +5,7 @@ import {observerSummaries,assessmentPayload} from './examiner.js';
 const cases=[...coreCases,...extraCases];
 import {timeline,locate,stations,patientReply} from './engine.js';
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KEY='paces-ward-v1',ENDPOINT_KEY='paces-ward-voice-api'; let state=null,tab='dialogue',lastIndex=-1,audio=null,recognition=null,warningKey='',storageOK=true,endpoint='';
+const KEY='paces-ward-v1',ENDPOINT_KEY='paces-ward-voice-api'; let state=null,tab='dialogue',lastIndex=-1,audio=null,recognition=null,warningKey='',storageOK=true,endpoint='',vivaSequence=0;
 try{endpoint=localStorage.getItem(ENDPOINT_KEY)||'';}catch{}
 try{const raw=localStorage.getItem(KEY);if(raw){const x=JSON.parse(raw);if(x.version===1&&Number.isFinite(x.started)&&Array.isArray(x.phases)&&x.records&&['running','review'].includes(x.status))state=x;}}catch{storageOK=false;}
 const clock=s=>`${Math.floor(Math.max(0,s)/60).toString().padStart(2,'0')}:${Math.floor(Math.max(0,s)%60).toString().padStart(2,'0')}`;
@@ -17,7 +17,7 @@ function position(){return locate(state.phases,elapsed());}
 function initAudio(){try{audio??=new (window.AudioContext||window.webkitAudioContext)();audio.resume();}catch{announce('Audio is unavailable; follow the visual countdown.');}}
 function bell(type='start'){if(!state?.sound||!audio)return;try{const now=audio.currentTime;const count=type==='questions'?2:type==='reading'?3:1;for(let i=0;i<count;i++){const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.setValueAtTime(type==='reading'?660:880,now+i*.35);g.gain.setValueAtTime(0,now+i*.35);g.gain.linearRampToValueAtTime(.15,now+i*.35+.01);g.gain.exponentialRampToValueAtTime(.001,now+i*.35+.5);o.connect(g);g.connect(audio.destination);o.start(now+i*.35);o.stop(now+i*.35+.55);}}catch{}}
 function speak(text){if(state?.voice&&'speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';u.rate=.95;speechSynthesis.speak(u);}}
-function stopVoice(){voiceRoom.stop();try{recognition?.abort();window.speechSynthesis?.cancel();}catch{}}
+function stopVoice(){vivaSequence++;voiceRoom.stop();try{recognition?.abort();window.speechSynthesis?.cancel();}catch{}}
 const voiceRoom=new VoiceRoom({
  onStatus:message=>{const el=$('#speechStatus');if(el)el.textContent=message;announce(message);},
  onCandidate:text=>recordSpoken('you',text),
@@ -48,6 +48,42 @@ async function assessCase(id){
  }catch(error){r.assessmentError=String(error.message||error).slice(0,180);}
  finally{r.assessmentPending=false;save();if(state?.status==='review')review();}
 }
+
+function startOralViva(c,r){
+ const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!R||!window.speechSynthesis){const el=$('#vivaStatus');if(el)el.textContent='Spoken answers require browser speech recognition. Please type your answers instead.';return;}
+ stopVoice();const token=++vivaSequence;
+ let index=0;
+ const status=text=>{const el=$('#vivaStatus');if(el)el.textContent=text;};
+ const isCurrent=()=>token===vivaSequence&&state?.status==='running'&&!position().done&&position().phase.caseId===c.id&&position().phase.type==='questions';
+ function ask(){
+  if(!isCurrent())return;
+  if(index>=c.qa.length){status('Oral questions complete. Both consultants will review your answers after this encounter.');return;}
+  const consultant=index%2?'Consultant 2':'Consultant 1';
+  status(consultant+' asks question '+(index+1)+' of '+c.qa.length+'. Listening will begin after the question.');
+  const utterance=new SpeechSynthesisUtterance(consultant+'. '+c.qa[index][0]);utterance.lang='en-GB';utterance.rate=.91;
+  const voices=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase()==='en-gb');
+  if(voices.length)utterance.voice=voices[index%voices.length];
+  utterance.onend=()=>{
+   if(!isCurrent())return;
+   const mic=new R();recognition=mic;let captured=false;
+   mic.lang='en-GB';mic.interimResults=false;
+   mic.onresult=e=>{
+    if(!isCurrent())return;
+    const answer=e.results?.[0]?.[0]?.transcript?.trim();if(!answer)return;
+    captured=true;r.answers[index]=answer;save();
+    const input=$('#answer'+index);if(input)input.value=answer;
+    index++;recognition=null;ask();
+   };
+   mic.onerror=e=>{if(isCurrent())status('Microphone: '+e.error+'. Restart oral viva or type answers.');};
+   mic.onend=()=>{if(isCurrent()&&!captured)status('No answer recorded. Restart oral viva or type your answer.');};
+   try{mic.start();status(consultant+' is listening. Speak your answer now.');}catch{status('Microphone unavailable. Type your answers instead.');}
+  };
+  utterance.onerror=()=>{if(isCurrent())status('Audio unavailable. Type your answers instead.');};
+  speechSynthesis.cancel();speechSynthesis.speak(utterance);
+ }
+ ask();
+}
 function start(practice=null,extended=false){if(state&&Object.keys(state.records).length&&!confirm('Start a new session? This replaces the saved session. Download your record first if you want to keep it.'))return;stopVoice();state={version:1,status:'running',practice,phases:timeline(practice,extended),mode:extended?'extended':'official',started:Date.now(),offset:0,floor:0,pausedAt:null,records:{},sound:true,voice:false};lastIndex=-1;warningKey='';initAudio();save();tick();}
 function portrait(c){return c.id>=8?'<div class="portrait portrait-abstract" role="img" aria-label="Illustrative avatar for '+esc(c.name)+'">'+esc(c.name.split(' ').map(x=>x[0]).join(''))+'</div>':`<div class="portrait" role="img" aria-label="AI-generated fictional portrait of ${esc(c.name)}" style="background-position:${(c.id%4)*100/3}% ${c.id<4?0:100}%"></div>`;}
 function home(){
@@ -65,7 +101,7 @@ function sessionView(pos){const p=pos.phase,c=cases[p.caseId],r=rec(c.id); const
 function phaseText(p){return {reading:'Read the candidate brief',communication:'Patient conversation · 10 minutes',consultation:p.seconds===600?'Focused consultation · 10 minutes':'History, examination & discussion · 15 minutes',examination:'Physical examination · 6 minutes',questions:'Examiner questions'}[p.type];}
 function renderEncounter(pos){const p=pos.phase,c=cases[p.caseId],r=rec(c.id),host=$('#encounter');
  if(p.type==='reading'){host.innerHTML=`<article class="reading"><div class="doc-head"><p class="reading-tag">INFORMATION FOR THE CANDIDATE</p><h3>${esc(c.title)}</h3><span class="small">Station ${p.station+1} · ${esc(c.location)}</span></div><p>${esc(c.instruction)}</p><div class="info-strip">You may make notes. Patient dialogue and examination findings unlock when the reading interval ends.</div>${state.practice===null&&[0,3,5].includes(c.id)?`<p class="small">The second encounter at this station is ${esc(cases[c.id+1].kind)}. It starts automatically after the first ten minutes.</p>`:''}</article>`;return;}
- if(p.type==='questions'){host.innerHTML=`<div class="panel-title">Two simulated consultants · present and discuss</div><div class="pad"><p class="small">Patient interaction has ended. Answer the prompts below. Model answers unlock in the review.</p></div>${c.qa.map(([q],i)=>`<div class="qblock"><h3>${i+1}. ${esc(q)}</h3><label class="sr-only" for="answer${i}">Answer to question ${i+1}</label><textarea id="answer${i}" data-answer="${i}" placeholder="Present your findings and reasoning…">${esc(r.answers[i]||'')}</textarea></div>`).join('')}<details class="pad"><summary>Findings you elicited (${r.signs.length})</summary>${r.signs.map(i=>`<p class="finding"><strong>${esc(c.signs[i][0])}</strong><br>${esc(c.signs[i][1])}</p>`).join('')||'<p class="small">No physical findings recorded.</p>'}</details>`;host.querySelectorAll('[data-answer]').forEach(a=>a.oninput=()=>{r.answers[a.dataset.answer]=a.value;save();});return;}
+ if(p.type==='questions'){host.innerHTML=`<div class="panel-title">Two simulated consultants · present and discuss</div><div class="pad"><p class="small">Patient interaction has ended. Answer orally with two simulated consultants, or type your answers. Model answers unlock in the review.</p><button class="live-cta" id="oralViva">🎙 Speak with consultants</button><button id="stopViva">Stop viva</button><p id="vivaStatus" class="small" role="status">Consultant 1 and Consultant 2 are observing.</p></div>${c.qa.map(([q],i)=>`<div class="qblock"><h3>${i+1}. ${esc(q)}</h3><label class="sr-only" for="answer${i}">Answer to question ${i+1}</label><textarea id="answer${i}" data-answer="${i}" placeholder="Present your findings and reasoning…">${esc(r.answers[i]||'')}</textarea></div>`).join('')}<details class="pad"><summary>Findings you elicited (${r.signs.length})</summary>${r.signs.map(i=>`<p class="finding"><strong>${esc(c.signs[i][0])}</strong><br>${esc(c.signs[i][1])}</p>`).join('')||'<p class="small">No physical findings recorded.</p>'}</details>`;host.querySelectorAll('[data-answer]').forEach(a=>a.oninput=()=>{r.answers[a.dataset.answer]=a.value;save();});$('#oralViva').onclick=()=>startOralViva(c,r);$('#stopViva').onclick=()=>{stopVoice();$('#vivaStatus').textContent='Oral viva stopped. You can type your answers.';};return;}
  const hasChat=['communication','consultation','examination'].includes(p.type);const hasExam=c.signs.length>0; if(!hasChat)tab='examine';if(!hasExam)tab='dialogue';
  host.innerHTML=`<details class="pad" style="padding-bottom:10px"><summary>Candidate instructions</summary><p class="instruction">${esc(c.instruction)}</p></details><div class="tabs">${hasChat?`<button data-tab="dialogue" class="${tab==='dialogue'?'selected':''}">Patient conversation</button>`:''}${hasExam?`<button data-tab="examine" class="${tab==='examine'?'selected':''}">Examination (${r.signs.length}/${c.signs.length})</button>`:''}<button data-tab="record" class="${tab==='record'?'selected':''}">Encounter log</button></div><div id="tabBody"></div>`;
  host.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;renderEncounter(position());});const body=$('#tabBody');
