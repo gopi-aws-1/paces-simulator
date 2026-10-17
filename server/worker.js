@@ -1,3 +1,4 @@
+import {patientStyle} from '../patient-style.js';
 import {cases as originalCases} from '../cases.js';
 import {extraCases} from '../extra-cases.js';
 const cases=[...originalCases,...extraCases];
@@ -62,6 +63,23 @@ async function endVideo(env,conversationId){
  const res=await fetch('https://tavusapi.com/v2/conversations/'+encodeURIComponent(conversationId)+'/end',{method:'POST',headers:{'x-api-key':env.TAVUS_API_KEY}});
  if(!res.ok)throw Error('Could not close the video room');
 }
+
+const PATIENT_VOICES=['coral','cedar','shimmer','onyx','sage','ash','echo','nova','cedar','verse'];
+function patientVoice(c){return PATIENT_VOICES[c.id]||((c.sex==='Man')?'cedar':'coral');}
+async function renderPatientSpeech(env,c,text){
+ const style=patientStyle(c);
+ const instructions=[
+ 'You are an adult fictional patient speaking directly to a kind doctor in a UK hospital.',
+ 'Speak in natural conversational British English, not like a narrator or an audiobook.',
+ 'Use human rhythm, gentle pauses, expressive intonation and realistic breathing without dramatic overacting.',
+ 'Sound '+(style.voice==='male'?'masculine':'feminine')+', with an age-appropriate adult voice and a slightly concerned but cooperative demeanour.',
+ 'Never add, remove, explain or improvise clinical information. Speak the text provided exactly in meaning.',
+ 'Do not speak headings, stage directions, labels or any commentary.'
+ ].join(' ');
+ const res=await fetch('https://api.openai.com/v1/audio/speech',{method:'POST',headers:{Authorization:'Bearer '+env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:env.SPEECH_MODEL||'gpt-4o-mini-tts',voice:patientVoice(c),input:text,instructions,response_format:'mp3',speed:1.0})});
+ if(!res.ok)throw Error('Patient speech generation failed ('+res.status+').');
+ return res;
+}
 export default {
  async fetch(request,env){
   const origin=request.headers.get('Origin')||'';
@@ -71,7 +89,7 @@ export default {
   if(origin!==allowed)return json({error:'Origin not allowed'},403,headers);
   if(request.method!=='POST')return json({error:'Use POST'},405,headers);
   const path=new URL(request.url).pathname.replace(/\/+$/,'');
-  if(!['/token','/evaluate','/video/create','/video/end'].includes(path))return json({error:'Not found'},404,headers);
+  if(!['/token','/evaluate','/video/create','/video/end','/speech'].includes(path))return json({error:'Not found'},404,headers);
   const length=Number(request.headers.get('content-length')||'0');
   if(length>40000)return json({error:'Request too large'},413,headers);
   if(env.API_LIMITER){
@@ -92,10 +110,16 @@ export default {
     return value.notConfigured?json({code:'VIDEO_NOT_CONFIGURED',error:'Patient video avatar not configured.'},503,headers):json(value,200,headers);
    }
    if(!env.OPENAI_API_KEY)return json({error:'Live AI voice has not been configured by the site owner.'},503,headers);
+   if(path==='/speech'){
+    const speech=String(input.text||'').trim();
+    if(!speech||speech.length>900||/[<>]/.test(speech))return json({error:'Invalid speech text'},400,headers);
+    const resp=await renderPatientSpeech(env,c,speech);
+    return new Response(resp.body,{status:200,headers:{...headers,'Content-Type':'audio/mpeg','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+   }
    if(path==='/token'){
     const result=await requestOpenAI(env,'realtime/client_secrets',{expires_after:{anchor:'created_at',seconds:60},
      session:{type:'realtime',model:env.REALTIME_MODEL||'gpt-realtime-2.1',instructions:patientPrompt(c),
-      audio:{input:{transcription:{model:'gpt-4o-mini-transcribe',language:'en'},turn_detection:{type:'semantic_vad',eagerness:'medium',create_response:true,interrupt_response:true}},output:{voice:'marin'}}}});
+      audio:{input:{transcription:{model:'gpt-4o-mini-transcribe',language:'en'},turn_detection:{type:'semantic_vad',eagerness:'medium',create_response:true,interrupt_response:true}},output:{voice:c.sex==='Man'?'cedar':'shimmer'}}}});
     return json({value:result.value,expires_at:result.expires_at},200,headers);
    }
    const messages=Array.isArray(input.messages)?input.messages.slice(0,80).map(m=>({who:m.who==='you'?'candidate':'patient',text:truncate(m.text,800)})):[];

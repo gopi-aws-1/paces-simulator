@@ -3,27 +3,27 @@ import {cases as base} from './cases.js';
 import {extraCases} from './extra-cases.js';
 import {naturalReply} from './conversation.js';
 import {VoiceRoom} from './voice.js';
+import {PatientSpeaker} from './speaker.js';
+import {drawPatient} from './avatar.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
 const patients=[...base,...extraCases],$=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API_KEY='paces-ward-voice-api';
 let api='',session=null,recognition=null,voice=null,token=0,cameraCanvas=null,cameraStream=null,cameraFrame=0,cameraVideo=null,sheet=null,videoCall=null,patientTalking=false,timer=null;
+const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},onStatus:announce});
 try{api=localStorage.getItem(API_KEY)||'';}catch{}
 function announce(s){const e=$('#liveStatus');if(e)e.textContent=s;}
 function speak(text,voiceIndex=0,done=()=>{}){
  const n=token;
- if(!('speechSynthesis'in window)){done();return;}
- const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';u.rate=.91;u.pitch=voiceIndex===1?.87:1.05;
- const vs=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith('en-gb'));
- if(vs.length)u.voice=vs[Math.min(voiceIndex,vs.length-1)];
- u.onend=()=>{patientTalking=false;if(token===n)done();};
- u.onerror=()=>{patientTalking=false;if(token===n)done();};
- patientTalking=voiceIndex===2;window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+ // Voice 2 means current patient; consultants use contrasting adult voices.
+ const person=voiceIndex===2?c():voiceIndex===1?{id:1,sex:'Man'}:{id:0,sex:'Woman'};
+ speaker.speak(text,{patient:person,endpoint:voiceIndex===2?api:'',preferAI:voiceIndex===2&&!!api,
+  done:()=>{if(n===token)done();}});
 }
 function stop(){
  token++;try{recognition?.abort();}catch{}recognition=null;
- voice?.stop();voice=null;window.speechSynthesis?.cancel();patientTalking=false;
+ voice?.stop();voice=null;speaker.stop();window.speechSynthesis?.cancel();patientTalking=false;
  if(videoCall&&api){
   fetch(api.replace(/\/+$/,'')+'/video/end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:videoCall.id})}).catch(()=>{});
  }videoCall=null;
@@ -40,7 +40,7 @@ function info(){return observerSummaries(c(),r());}
 function log(who,text){
  if(!session||session.stage!=='patient'||!text?.trim())return;
  const rec=r();if(rec.messages.at(-1)?.who===who&&rec.messages.at(-1)?.text===text)return;
- rec.messages.push({who,text});if(who==='patient'){patientTalking=true;setTimeout(()=>patientTalking=false,2100);}
+ rec.messages.push({who,text});
  refresh();
 }
 function home(){
@@ -49,7 +49,7 @@ function home(){
  <button class="mode" id="one"><span class="mini-icon">◎</span><span class="mode-title">Practise One Case</span><span class="mode-desc">Choose a patient and start speaking straight away. One encounter at a time.</span><span class="mode-arrow">↗</span></button></div>
  <p class="choice-note">Full extended practice · 10 fictional patients · 10 minutes each · two simulated consultant perspectives</p>
  <div class="case-picker hide" id="picker"><label for="choice">Select a patient</label><select id="choice">${patients.map((p,i)=>`<option value="${i}">Case ${i+1}: ${esc(p.title)} · ${esc(p.kind)}</option>`).join('')}</select><button class="btn btn-main btn-large" style="margin-top:15px;width:100%" id="launch">Start This Case →</button></div>
- <details class="settings"><summary>Optional live AI audio/video setup</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The demonstration works without a server using a moving patient video portrait and the browser's scripted speech. For natural AI dialogue, deploy the server-side voice service. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><button class="btn" id="saveEndpoint">Save URL</button></details>
+ <details class="settings"><summary>Optional live AI audio/video setup</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The no-login demo works with expressive animated patient illustrations and gender-matched device voices. Mobile speech recognition varies by browser; typing always works. A protected speech service provides more natural AI voices when configured. For natural AI dialogue, deploy the server-side voice service. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><button class="btn" id="saveEndpoint">Save URL</button></details>
  <p class="footnote">Independent educational simulation. The official PACES has eight encounters at five stations, assessed by two examiners per station. The ten-patient mode is additional training, not the official format. No real patient data.</p></div>`;
  $('#full').onclick=()=>begin('exam');$('#one').onclick=()=>{$('#picker').classList.toggle('hide');$('#picker').scrollIntoView({behavior:'smooth',block:'nearest'});};
  $('#launch').onclick=()=>begin('case',$('#choice').value);
@@ -77,7 +77,7 @@ function intro(){
  playIntro();
 }
 function playIntro(){
- token++;window.speechSynthesis?.cancel();const n=token;let index=0;
+ token++;speaker.stop();const n=token;let index=0;
  function next(){
   if(n!==token||session?.stage!=='intro')return;
   if(index===briefing.length){announce('Briefing complete. Starting your first patient.');$('#ca').classList.remove('active');$('#cb').classList.remove('active');setTimeout(()=>{if(n===token&&session?.stage==='intro')firstPatient();},900);return;}
@@ -89,14 +89,14 @@ function playIntro(){
  next();
 }
 function answerIntro(question){
- token++;window.speechSynthesis?.cancel();const q=question.toLowerCase();
+ token++;speaker.stop();const q=question.toLowerCase();
  const answer=/tim|long|minute/.test(q)?'Each practice encounter lasts ten minutes, and you may move to the next patient early.':/mark|pass|score|assess/.test(q)?'Our observations are for learning and reflection, not an official PACES grade.':/start|begin|ready|first/.test(q)?'We are ready when you are. Select Skip and Meet First Patient to begin.':/real|official|format|eight|ten/.test(q)?'The official PACES has eight encounters; today’s optional extended training has ten fictional patients.':'Focus on consent, relevant clinical history, your working diagnosis and the patient’s concerns. You may begin when ready.';
  $('#ca').classList.add('active');$('#cb').classList.remove('active');$('#quote').textContent='Dr Sarah Morgan: “'+answer+'”';announce('Consultant answering.');speak(answer,0,()=>announce('Ask another question or start the first patient.'));
 }
 function hearIntro(){
  const R=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!R){announce('Voice input unavailable; type your question below.');return;}
- token++;window.speechSynthesis?.cancel();const rec=new R();recognition=rec;rec.lang='en-GB';
+ token++;speaker.stop();const rec=new R();recognition=rec;rec.lang='en-GB';
  rec.onresult=e=>{const q=e.results?.[0]?.[0]?.transcript||'';if(q){$('#cq').value=q;answerIntro(q);}};
  rec.onerror=e=>announce('Microphone error: '+e.error+'. You can type instead.');
  try{rec.start();announce('Listening to your question…');}catch{announce('Could not open microphone. Please type.');}
@@ -107,7 +107,7 @@ function encounter(){
  const p=c(),v=r();if(!v.messages.length)v.messages.push({who:'patient',text:p.opening});
  $('#app').innerHTML=`<div class="frame">${header(p)}<div class="call-layout"><section><div class="video-frame" id="videoFrame">
  <video id="patientVideo" autoplay muted playsinline aria-label="Animated simulated patient video"></video>
- <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Animated patient · browser speech</span></span><span class="video-tag" id="micState">● Ready</span></div>
+ <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Illustrated patient · expressive face</span></span><span class="video-tag" id="micState">● Ready</span></div>
  <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div></div>
  <div class="call-actions"><button class="btn btn-main btn-large" id="talk">🎙 Start Talking</button><button class="btn" id="mute">Mute / Stop</button><button class="btn" id="examine">🩺 Examine</button><button class="btn" id="next">${session.index===session.ids.length-1?'Finish & Review →':'Next Patient →'}</button></div>
  <p class="floating-status" id="liveStatus">Click Start Talking to speak to the patient. They will answer aloud.</p>
@@ -117,7 +117,7 @@ function encounter(){
  <div id="observers" class="patient-side-panel"></div></aside></div></div>
  <dialog id="examModal"><h3>Examine the patient</h3><p class="muted">Choose a manoeuvre to reveal the simulated clinical finding. Clicks cannot assess physical examination technique.</p><div id="signs" class="finding-list"></div><div class="modal-actions"><button class="btn btn-main" id="closeSigns">Return to patient</button></div></dialog>
  <dialog id="instructionsModal"><h3>Candidate instructions</h3><p>${esc(p.instruction)}</p><div class="modal-actions"><button class="btn btn-main" id="closeInstructions">Back to patient</button></div></dialog>`;
- $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();if(videoCall)disconnectVideo();announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
+ $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();speaker.stop();if(videoCall)disconnectVideo();announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
  $('#examine').onclick=()=>{drawSigns();$('#examModal').showModal();};
  $('#closeSigns').onclick=()=>$('#examModal').close();
  $('#details').onclick=()=>$('#instructionsModal').showModal();$('#closeInstructions').onclick=()=>$('#instructionsModal').close();
@@ -140,15 +140,20 @@ function askTyped(){
  if(videoCall){announce('Live video mode listens inside the video call; speak there.');return;}
  input.value='';log('you',q);
  if(voice?.active&&voice.mode==='ai'){if(!voice.sendText(q))announce('AI connection is not ready. Reconnect or try again.');return;}
- const answer=typedReply(q);log('patient',answer);speak(answer,2);
+ const answer=typedReply(q);log('patient',answer);
+ if(voice?.active&&voice.mode==='browser'){
+  voice.busy=true;
+  try{voice.recognition?.abort();}catch{}
+  speak(answer,2,()=>{if(voice?.active){voice.busy=false;voice.listen();}});
+ }else speak(answer,2);
 }
 async function connect(){
  if(voice?.active||videoCall){announce('Microphone already active. Speak to your patient.');return;}
  const b=$('#talk');b.disabled=true;announce('Connecting your microphone…');
  try{
   if(api&&await connectVideo()){announce('Live video connected. Speak inside the video call.');return;}
-  voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t)});
-  if(api){await voice.connectAI(api,c().id);$('#videoMode').textContent='Animated patient · live AI speech';}
+  voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t),onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},speaker});
+  if(api){await voice.connectAI(api,c().id);$('#videoMode').textContent='Illustrated patient · live AI speech';}
   else await voice.connectBrowser(c(),typedReply);
   $('#micState').textContent='● Mic connected';announce(api?'Live AI patient speaking mode connected.':'Browser microphone connected. Speak to your patient.');
  }catch(e){announce('Could not start voice: '+(e.message||'Unknown error')+'. You can type instead.');}
@@ -176,7 +181,7 @@ function disconnectVideo(){
  if(!videoCall)return;
  const id=videoCall.id;videoCall=null;$('#videoFrame iframe')?.remove();
  if(api)fetch(api.replace(/\/+$/,'')+'/video/end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:id})}).catch(()=>{});
- portrait(c());
+ $('#patientVideo')?.classList.remove('hide');portrait(c());
 }
 function drawSigns(){
  const signs=$('#signs'),v=r(),p=c();
@@ -184,31 +189,34 @@ function drawSigns(){
  signs.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.i);if(!v.signs.includes(i))v.signs.push(i);drawSigns();refresh();});
 }
 function portrait(p){
- stopPortrait();const cv=document.createElement('canvas');cv.width=960;cv.height=650;cameraCanvas=cv;
- const el=$('#patientVideo');if(!el)return;cameraVideo=el;
- if(cv.captureStream){cameraStream=cv.captureStream(18);el.srcObject=cameraStream;el.muted=true;el.play().catch(()=>{});}
- else{cv.style.width='100%';cv.style.height='100%';el.replaceWith(cv);}
- sheet??=new Image();if(!sheet.src)sheet.src='./assets/patients.png';
- const ctx=cv.getContext('2d'),t0=performance.now();
- const draw=time=>{
+ stopPortrait();
+ // A directly-rendered canvas is more reliable on iPhone Safari than
+ // video.captureStream(): no autoplay permission or silent black video.
+ const cv=document.createElement('canvas');cv.id='patientVideo';
+ cv.width=960;cv.height=650;cv.className='patient-avatar';
+ cv.setAttribute('role','img');
+ cv.setAttribute('aria-label','Animated illustration of '+p.name+' with speaking lips and blinking eyes');
+ cameraCanvas=cv;
+ const old=$('#patientVideo');if(!old)return;
+ old.replaceWith(cv);
+ const ctx=cv.getContext('2d');
+ const start=performance.now();let previous=0;
+ const reduceMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
+ const render=time=>{
   if(cameraCanvas!==cv)return;
-  const t=(time-t0)/1000,W=cv.width,H=cv.height,g=ctx.createLinearGradient(0,0,W,H);
-  g.addColorStop(0,'#356579');g.addColorStop(1,'#112536');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(sheet.complete&&sheet.naturalWidth){
-   const id=p.id<8?p.id:p.id-8,sw=sheet.naturalWidth/4,sh=sheet.naturalHeight/2,sx=(id%4)*sw,sy=Math.floor(id/4)*sh;
-   ctx.save();ctx.filter='blur(26px) brightness(.52)';ctx.drawImage(sheet,sx,sy,sw,sh,-110,-140,W+220,H+280);ctx.restore();
-   const h=H*1.08,w=Math.min(W*.7,h*sw/sh),dy=Math.sin(t*1.15)*3+(patientTalking?Math.sin(t*13)*1.3:0);
-   ctx.drawImage(sheet,sx,sy,sw,sh,(W-w)/2,H-h+35+dy,w,h);
-  }else{ctx.fillStyle='#cce8eb';ctx.textAlign='center';ctx.font='bold 100px sans-serif';ctx.fillText(p.name.split(' ').map(w=>w[0]).join(''),W/2,H/2);}
-  const over=ctx.createLinearGradient(0,H*.58,0,H);over.addColorStop(0,'#06182700');over.addColorStop(1,'#061827bb');ctx.fillStyle=over;ctx.fillRect(0,H*.58,W,H*.42);
-  $('#bars')?.classList.toggle('active',patientTalking||voice?.active&&voice.mode==='ai');
-  cameraFrame=requestAnimationFrame(draw);
+  if(time-previous>=40||previous===0){
+   previous=time;
+   drawPatient(ctx,p,(time-start)/1000,patientTalking,speaker.volume(),reduceMotion);
+   $('#bars')?.classList.toggle('active',patientTalking);
+  }
+  cameraFrame=requestAnimationFrame(render);
  };
- cameraFrame=requestAnimationFrame(draw);
+ cameraFrame=requestAnimationFrame(render);
 }
 function stopPortrait(){
  if(cameraFrame)cancelAnimationFrame(cameraFrame);cameraFrame=0;
- cameraStream?.getTracks().forEach(t=>t.stop());cameraStream=null;cameraCanvas=null;
+ if(cameraStream)cameraStream.getTracks().forEach(t=>t.stop());
+ cameraStream=null;cameraCanvas=null;
 }
 function tick(){
  if(session?.stage!=='patient')return;
@@ -243,7 +251,7 @@ function review(){
  <div class="intro-actions" style="justify-content:flex-start"><button class="btn btn-main" id="again">Start Again</button><button class="btn" id="export">Download Session</button></div>
  <div class="case-results">${rows.map(({p,rec},i)=>`<details class="case-result" ${rows.length===1?'open':''}><summary>${i+1}. ${esc(p.name)} · ${esc(p.title)}<span>${rec.messages.filter(m=>m.who==='you').length} questions asked · ${rec.signs.length} exam actions</span></summary><p><strong>Working diagnosis / focus:</strong> ${esc(p.diagnosis)}</p>
  <div class="feedback-grid">${(rec.assessment?.length?rec.assessment.map(a=>({name:a.name,body:a.feedback})):observerSummaries(p,rec).map(a=>({name:a.name,body:a.summary+'. '+a.detail}))).map(a=>`<div class="feedback-card"><strong>${esc(a.name)}</strong>${esc(a.body)}</div>`).join('')}</div>
- ${rec.assessmentPending?'<p>AI consultant assessment loading…</p>':''}${rec.assessmentError?`<p>AI assessment unavailable: ${esc(rec.assessmentError)}</p>`:''}<h3 style="margin-top:22px">Conversation</h3>${rec.messages.map(m=>`<p><strong>${m.who==='you'?'Candidate':esc(p.name)}:</strong> ${esc(m.text)}</p>`).join('')}</details>`).join('')}</div><p class="footnote">Original fictional cases. The on-page portrait video is animated, not a real person's live video. Full interactive video requires a separate Tavus service and credentials. No result is an official PACES grade.</p></div>`;
+ ${rec.assessmentPending?'<p>AI consultant assessment loading…</p>':''}${rec.assessmentError?`<p>AI assessment unavailable: ${esc(rec.assessmentError)}</p>`:''}<h3 style="margin-top:22px">Conversation</h3>${rec.messages.map(m=>`<p><strong>${m.who==='you'?'Candidate':esc(p.name)}:</strong> ${esc(m.text)}</p>`).join('')}</details>`).join('')}</div><p class="footnote">Original fictional cases. The illustrated avatar's eyes and lips animate during simulated speech; it is not a recording of a person. Full interactive video requires a separate Tavus service and credentials. No result is an official PACES grade.</p></div>`;
  $('#again').onclick=()=>{stop();session=null;render();};
  $('#export').onclick=()=>{const blob=new Blob([JSON.stringify(session,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='paces-practice.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);};
 }

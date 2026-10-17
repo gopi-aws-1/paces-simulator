@@ -1,9 +1,11 @@
+import {PatientSpeaker} from './speaker.js';
 /* Live audio controller. No API keys are stored or accepted in the browser. */
 export class VoiceRoom {
- constructor({onStatus,onCandidate,onPatient}){
-  this.onStatus=onStatus;this.onCandidate=onCandidate;this.onPatient=onPatient;
+ constructor({onStatus,onCandidate,onPatient,onSpeaking=()=>{},speaker=null}){
+  this.onStatus=onStatus;this.onCandidate=onCandidate;this.onPatient=onPatient;this.onSpeaking=onSpeaking;
+  this.speaker=speaker||new PatientSpeaker({onSpeaking,onStatus});this.ownSpeaker=!speaker;this.caseRecord=null;
   this.mode=null;this.pc=null;this.dc=null;this.stream=null;this.audio=null;
-  this.recognition=null;this.speech=null;this.active=false;this.reply=null;
+  this.recognition=null;this.speech=null;this.active=false;this.reply=null;this.busy=false;
  }
  status(message){this.onStatus(message);}
  async connectAI(endpoint,caseId){
@@ -29,6 +31,8 @@ export class VoiceRoom {
     let event;try{event=JSON.parse(e.data);}catch{return;}
     if(event.type==='conversation.item.input_audio_transcription.completed'&&event.transcript?.trim())this.onCandidate(event.transcript.trim());
     if(['response.output_audio_transcript.done','response.audio_transcript.done'].includes(event.type)&&event.transcript?.trim())this.onPatient(event.transcript.trim());
+    if(event.type==='response.created')this.onSpeaking(true);
+    if(event.type==='response.done'||event.type==='response.cancelled')this.onSpeaking(false);
     if(event.type==='error')this.status(event.error?.message||'Voice service error. You can reconnect.');
    };
    const offer=await pc.createOffer();await pc.setLocalDescription(offer);
@@ -43,22 +47,17 @@ export class VoiceRoom {
   this.stop();
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R||!('speechSynthesis' in window))throw Error('Hands-free browser speech is unavailable here. Try Chrome or Edge, or type your questions.');
-  this.mode='browser';this.reply=answer;this.active=true;
+  this.mode='browser';this.caseRecord=caseRecord;this.reply=answer;this.active=true;
   this.status('Scripted browser voice is ready. This mode does not use an AI patient.');
   this.say(caseRecord.opening,()=>this.listen());
  }
  say(text,done){
   if(!this.active)return;
-  window.speechSynthesis.cancel();
-  const utterance=new SpeechSynthesisUtterance(text);
-  utterance.lang='en-GB';utterance.rate=0.94;
-  const voices=window.speechSynthesis.getVoices();const british=voices.find(v=>v.lang.toLowerCase()==='en-gb');
-  if(british)utterance.voice=british;
-  utterance.onend=()=>{if(this.active)done?.();};
-  utterance.onerror=()=>{if(this.active)done?.();};
-  this.speech=utterance;window.speechSynthesis.speak(utterance);
+  // The same female/male voice profile is used for typed and microphone
+  // conversations. Do not restart recognition until speech has finished.
+  this.speaker.speak(text,{patient:this.caseRecord,done:()=>{if(this.active)done?.();}});
  }
- listen(){
+  listen(){
   if(!this.active||this.mode!=='browser')return;
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   const recognition=new R();this.recognition=recognition;
@@ -66,14 +65,14 @@ export class VoiceRoom {
   recognition.onresult=async e=>{
    if(!this.active)return;
    const text=e.results?.[0]?.[0]?.transcript?.trim();if(!text)return;
-   this.onCandidate(text);this.status('Patient considering your question…');
+   this.busy=true;this.onCandidate(text);this.status('Patient considering your question…');
    const result=this.reply(text);
    if(!this.active)return;
    this.onPatient(result);
-   this.say(result,()=>this.listen());
+   this.say(result,()=>{this.busy=false;this.listen();});
   };
   recognition.onerror=e=>{if(!this.active)return;if(['not-allowed','service-not-allowed'].includes(e.error)){this.status('Microphone permission denied. Use text instead.');this.stop();}else this.status('Speech recognition: '+e.error+'. Try again if listening stops.');};
-  recognition.onend=()=>{if(!this.active)return;/* Restart after silence, but not while the patient is speaking. */if(!window.speechSynthesis.speaking)setTimeout(()=>{if(this.active&&this.recognition===recognition)this.listen();},400);};
+  recognition.onend=()=>{if(!this.active)return;/* Restart after silence, but not while the patient is speaking. */if(!this.busy&&!window.speechSynthesis.speaking)setTimeout(()=>{if(this.active&&this.recognition===recognition)this.listen();},400);};
   try{recognition.start();this.status('Listening — speak to your patient.');}catch{this.status('Unable to start listening; use text or reconnect.');}
  }
  send(event){if(this.dc?.readyState==='open')this.dc.send(JSON.stringify(event));}
@@ -83,12 +82,14 @@ export class VoiceRoom {
   this.send({type:'response.create'});return true;
  }
  stop(){
-  this.active=false;this.mode=null;
+  this.active=false;this.mode=null;this.busy=false;
   if(this.recognition){const r=this.recognition;this.recognition=null;r.onend=null;r.onresult=null;try{r.abort();}catch{}}
   try{window.speechSynthesis?.cancel();}catch{}
   try{this.dc?.close();}catch{}this.dc=null;
   try{this.pc?.close();}catch{}this.pc=null;
   try{this.stream?.getTracks().forEach(t=>t.stop());}catch{}this.stream=null;
+  this.speaker.stop();
+  this.onSpeaking(false);
   if(this.audio){this.audio.srcObject=null;this.audio.remove();this.audio=null;}
  }
 }

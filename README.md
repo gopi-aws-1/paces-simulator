@@ -10,6 +10,15 @@ The main app now has just **two choices**: **Start Full Exam** (two consultant a
 
 ---
 
+## Mobile voices and animated patients (new)
+
+- The consultation now fits phone screens, including small iPhones: portrait area scales down, typing fields use a 16px mobile-safe font, and the call controls are touch-sized and sticky above the iOS home-indicator safe area.
+- Ten fictional patients now have **gender-matched, individually tuned device speech profiles**. On-device male/female selection is best-effort: available voices vary by Safari/iOS/Android, and devices that don't have a matching voice installed may fall back to their default voice. Use the operating system's downloaded enhanced voices for better results.
+- The illustrated patient is a **distinct character per case**, with blinking eyes, gentle head motion and lips that move while the patient speaks. This is a stylised avatar, **not video of an actual actor** and not accurate phoneme-level lip-sync; optional Tavus video remains the lifelike-video route.
+- With a deployed Cloudflare Worker and private `OPENAI_API_KEY`, the new `/speech` route can use `gpt-4o-mini-tts` for richer, distinct case voices and audio-amplitude-assisted lip movement. The app tries this optional speech route for typed patient replies when the Worker URL is configured. Genuine spontaneous AI voice calls still use the separately configured Realtime route.
+- **The cloud Worker is not deployed by GitHub Pages.** The public site without backend credentials still speaks using built-in browser voices, which may sound mechanical. Never expose provider API keys in frontend code. Additional paid API security/quotas are required for public use.
+
+
 ## Run
 
 Use Node 22+ for tests: `npm test` and `npm run check`. No npm packages required.

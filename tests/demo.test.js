@@ -22,7 +22,7 @@ test('consultant introduction is audible, skippable and automatically advances',
  assert.match(ui,/setTimeout\(\(\)=>\{if\(n===token&&session\?\.stage==='intro'\)firstPatient\(\)/);
 });
 test('video streaming fallback and authenticated supplier session hooks exist',()=>{
- assert.match(ui,/captureStream\(18\)/);assert.match(ui,/video\/create/);
+ assert.match(ui,/drawPatient\(/);assert.match(ui,/requestAnimationFrame/);assert.match(ui,/video\/create/);
  assert.match(worker,/TAVUS_API_KEY/);assert.match(worker,/require_auth:true/);
  assert.match(worker,/video\/end/);
  assert.doesNotMatch(ui,/OPENAI_API_KEY|TAVUS_API_KEY/);
