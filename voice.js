@@ -51,11 +51,11 @@ export class VoiceRoom {
   this.status('Browser microphone ready. Patient responses may use Gemini if configured.');
   this.say(caseRecord.opening,()=>this.listen());
  }
- say(text,done){
+ say(text,done,onStart=()=>{}){
   if(!this.active)return;
   // The same female/male voice profile is used for typed and microphone
   // conversations. Do not restart recognition until speech has finished.
-  this.speaker.speak(text,{patient:this.caseRecord,endpoint:this.endpoint,preferAI:!!this.endpoint,done:()=>{if(this.active)done?.();}});
+  this.speaker.speak(text,{patient:this.caseRecord,endpoint:this.endpoint,preferAI:!!this.endpoint,onStart:()=>{if(this.active)onStart();},done:()=>{if(this.active)done?.();}});
  }
   listen(){
   if(!this.active||this.mode!=='browser')return;
@@ -68,8 +68,9 @@ export class VoiceRoom {
    this.busy=true;this.onCandidate(text);this.status('Patient considering your question…');
    let result;try{result=await this.reply(text);}catch{result='Sorry, could you repeat that, doctor?';}
    if(!this.active)return;
-   this.onPatient(result);
-   this.say(result,()=>{this.busy=false;this.listen();});
+   this.status('Patient is preparing to speak…');
+   // Transcript text appears only when the actual speech begins.
+   this.say(result,()=>{this.busy=false;this.listen();},()=>this.onPatient(result));
   };
   recognition.onerror=e=>{if(!this.active)return;if(['not-allowed','service-not-allowed'].includes(e.error)){this.status('Microphone permission denied. Use text instead.');this.stop();}else this.status('Speech recognition: '+e.error+'. Try again if listening stops.');};
   recognition.onend=()=>{if(!this.active)return;/* Restart after silence, but not while the patient is speaking. */if(!this.busy&&!window.speechSynthesis.speaking)setTimeout(()=>{if(this.active&&this.recognition===recognition)this.listen();},400);};
