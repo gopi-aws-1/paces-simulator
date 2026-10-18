@@ -157,3 +157,5 @@ input,select,textarea{font-size:16px}
 @media(prefers-reduced-motion:reduce){.ward-art *, .ward-art{animation:none!important;transition:none!important}}
 
 .ward-loading{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(140deg,#b4cbd2,#e5edf0);color:#244354;font-weight:700;font-size:16px}
+
+.gemini-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.gemini-result{overflow-wrap:anywhere;color:#adf5d8;font-size:12px;line-height:1.6;margin:11px 0 0}
