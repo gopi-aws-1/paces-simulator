@@ -8,6 +8,7 @@ import {drawPatient} from './avatar.js';
 import {patientStyle} from './patient-style.js';
 import {monitorMarkup,animateMonitor} from './vitals-monitor.js';
 import {photographicStage,setupPhotographicStage} from './photographic-scene.js';
+import {requestPatientReply} from './response-timing.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
 
@@ -262,7 +263,13 @@ async function typedReply(text){
  if(action){setPatientPosition(action.position,{spoken:true});return action.answer;}
  // The same context-aware case dialogue is used by microphone and keyboard.
  // Only the authored patient fact bank may supply clinical history.
- if(api){try{const response=await fetch(api.replace(/\/+$/,'')+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:c().id,question:text,history:r().messages.slice(0,-1)})});const data=await response.json();if(response.ok&&data.answer)return data.answer;announce('Gemini unavailable; using case-based fallback.');}catch{announce('Gemini unavailable; using case-based fallback.');}}
+ if(api){
+  try{
+   const {response,data}=await requestPatientReply(fetch,api.replace(/\/+$/,'')+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:c().id,question:text,history:r().messages.slice(0,-1)})});
+   if(response.ok&&typeof data.answer==='string'&&data.answer.trim())return data.answer.trim();
+  }catch{/* Fast local case-based reply whenever optional AI is unavailable or too slow. */}
+  announce('Patient responding using the local case details…');
+ }
  return naturalReply(c(),text,r().messages).text;
 }
 async function askTyped(){
