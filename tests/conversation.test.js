@@ -67,3 +67,20 @@ test('personal dedication without names appears at the top on all screens',()=>{
  assert.doesNotMatch(html,/Dr\. Jyo/i);
  assert.ok(html.indexOf('dedication-banner')<html.indexOf('<header>'));
 });
+
+test('patient challenges premature reassurance rather than parroting symptoms',()=>{
+ const h=[{who:'patient',text:patients[0].opening},{who:'you',text:'no nothing wrong you looks alright'}];
+ const reply=answer(0,'no nothing wrong you looks alright',h);
+ assert.match(reply,/scan|why am i here|worried/i);
+ assert.doesNotMatch(reply,/six weeks|3 kg|not quite sure about that particular detail/i);
+});
+test('patient responds naturally to clinical uncertainty and checking understanding',()=>{
+ assert.match(answer(0,'I cannot say for certain until we have more tests.'),/serious|certain|worried/i);
+ assert.match(answer(0,'Does that make sense to you?'),/scan|think so/i);
+ assert.match(answer(0,'We can go slowly, take your time.'),/thank you|nervous/i);
+});
+test('unrecognised doctor remarks do not trigger scripted symptom dumps',()=>{
+ const reply=answer(0,'The weather is rather lovely today.',[{who:'patient',text:patients[0].opening}]);
+ assert.doesNotMatch(reply,/six weeks|3 kg|symptom|main thing i have noticed/i);
+ assert.match(reply,/doctor|tell me|see/i);
+});
