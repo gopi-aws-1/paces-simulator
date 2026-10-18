@@ -61,8 +61,9 @@ test('the main app uses the same grounded answers for typed and browser-micropho
  assert.match(ui,/return naturalReply\(c\(\),text,r\(\)\.messages\)\.text/);
  assert.doesNotMatch(ui,/I am not sure about that, doctor\. Could you ask me in a different way/);
 });
-test('personal Dr. Jyo heading appears at the top on all screens',()=>{
+test('personal dedication without names appears at the top on all screens',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.match(html,/<div class="dedication-banner"><h2>specially made for my princess Dr\. Jyo!<\/h2>/);
+ assert.match(html,/<div class="dedication-banner"><h2>specially designed for my princess<\/h2>/);
+ assert.doesNotMatch(html,/Dr\. Jyo/i);
  assert.ok(html.indexOf('dedication-banner')<html.indexOf('<header>'));
 });
