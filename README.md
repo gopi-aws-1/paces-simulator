@@ -105,3 +105,14 @@ All typed data remain in localStorage on the device. Session exports download lo
 ## Image provenance
 
 `assets/patients.png` was generated with the built-in ChatGPT image generator. Prompt: eight equal portraits in a four-column, two-row contact sheet; fictional adults matching the eight case demographics; ordinary clothing; pale-blue UK hospital privacy curtains; realistic soft lighting; no diagnostic signs, logos or text. The sheet is displayed by CSS background positions without editing individual portraits.
+
+
+## Photographic ward simulation
+
+The consultation screen includes photographic stand-ins for the default lying-down view, animated simulated bedside telemetry, speaking activity feedback, and the original illustrated sitting/standing poses. The static photographs **do not lip-sync or change physical position**. When a Tavus video service is configured and available, the existing interactive video room remains the route for real moving, speaking patient video. The photograph is automatically replaced with the illustrated fallback if the image cannot load.
+
+Photo credits (used as illustrative stock models rather than the fictional patients):
+- [Female inpatient / National Cancer Institute](https://unsplash.com/photos/a-woman-laying-in-a-hospital-bed-next-to-a-man-dkZQfm1LLQE), Unsplash License.
+- [Male inpatient / Engin Akyurt](https://unsplash.com/photos/a-man-laying-in-a-hospital-bed-next-to-a-monitor-ZjVb97Pq0Ls), Unsplash License.
+
+All monitor values are fictional educational telemetry; normal-range defaults do not imply that the case's author supplied actual observations. Do not use for clinical decision making.
