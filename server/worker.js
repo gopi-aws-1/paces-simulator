@@ -155,17 +155,19 @@ export default {
   if(path==='/video/end'){
    try{await endVideo(env,input.conversationId);return json({ended:true},200,headers);}catch(error){return json({error:error.message},502,headers);}
   }
+  if(path==='/models'){
+   if(!env.GEMINI_API_KEY)return json({error:'Gemini API key not configured.'},503,headers);
+   try{
+    const names=await availableGeminiModels(env);
+    return json({availableModels:names,preferred:env.GEMINI_MODEL||null,chosen:modelCandidates(names,env.GEMINI_MODEL||'gemini-2.5-flash')[0]||null},200,headers);
+   }catch(error){return json({error:error.message||'Model discovery unavailable',providerStatus:error.providerStatus||null},502,headers);}
+  }
   const id=Number(input.caseId),c=Number.isInteger(id)?getCase(id):null;
   if(!c)return json({error:'Unknown simulated patient'},400,headers);
   try{
    if(path==='/video/create'){
     const value=await createVideo(env,c);
     return value.notConfigured?json({code:'VIDEO_NOT_CONFIGURED',error:'Patient video avatar not configured.'},503,headers):json(value,200,headers);
-   }
-   if(path==='/models'){
-    if(!env.GEMINI_API_KEY)return json({error:'Gemini API key not configured.'},503,headers);
-    const names=await availableGeminiModels(env);
-    return json({availableModels:names,preferred:env.GEMINI_MODEL||null,chosen:modelCandidates(names,env.GEMINI_MODEL||'gemini-2.5-flash')[0]||null},200,headers);
    }
    if(path==='/chat'){
     if(!env.GEMINI_API_KEY)return json({error:'Gemini has not been configured.'},503,headers);
