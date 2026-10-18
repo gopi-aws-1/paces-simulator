@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {cases} from '../cases.js';
 import {extraCases} from '../extra-cases.js';
-import {naturalReply} from '../conversation.js';
+import {naturalReply,immediatePatientReply} from '../conversation.js';
 import {readFileSync} from 'node:fs';
 const patients=[...cases,...extraCases];
 function answer(id,question,history=[]){return naturalReply(patients[id],question,history).text;}
@@ -83,4 +83,39 @@ test('unrecognised doctor remarks do not trigger scripted symptom dumps',()=>{
  const reply=answer(0,'The weather is rather lovely today.',[{who:'patient',text:patients[0].opening}]);
  assert.doesNotMatch(reply,/six weeks|3 kg|symptom|main thing i have noticed/i);
  assert.match(reply,/doctor|tell me|see/i);
+});
+
+test('record review statements get concise acknowledgements, not unrelated medical history',()=>{
+ const c=patients[0];
+ const first=[{who:'patient',text:c.opening},{who:'you',text:'let me look at your records'}];
+ const a=answer(0,'let me look at your records',first);
+ assert.match(a,/take your time|wait|thank you/i);
+ assert.doesNotMatch(a,/tell me a little more|six weeks|3 kg|scan showed/i);
+ const second=[...first,{who:'patient',text:a},{who:'you',text:"I mean I haven't gone through your record yet let me see your reports now"}];
+ const b=answer(0,"I mean I haven't gone through your record yet let me see your reports now",second);
+ assert.match(b,/take your time|wait|thank you/i);
+ assert.notEqual(a,b,'Patient should not repeat the exact same acknowledgment');
+ assert.doesNotMatch(b,/tell me a little more|six weeks|lost about/i);
+});
+test('non-medical patient acknowledgements can run without waiting on an AI request',()=>{
+ const c=patients[0];
+ for(const phrase of ['Let me look at your records','Just a moment please',"I haven't seen your test reports yet; let me review them"]){
+  const instant=immediatePatientReply(c,phrase,[{who:'patient',text:c.opening}]);
+  assert.ok(instant,'Expected immediate acknowledgement: '+phrase);
+  assert.equal(instant.topics[0],'Acknowledgement');
+ }
+ assert.equal(immediatePatientReply(c,'How long have you been coughing?',[]),null);
+ assert.equal(immediatePatientReply(c,'Have you coughed up blood?',[]),null);
+});
+test('unfamiliar remarks never force the patient to ask for more details repeatedly',()=>{
+ const c=patients[0];
+ let h=[{who:'patient',text:c.opening}];
+ const replies=[];
+ for(const line of ['Well, I have just arrived.','Okay, please wait here.','Right, I am thinking about it.']){
+  h.push({who:'you',text:line});
+  const a=answer(0,line,h);
+  replies.push(a);h.push({who:'patient',text:a});
+  assert.doesNotMatch(a,/I see, doctor. Could you tell me a little more\?/i);
+ }
+ assert.ok(new Set(replies).size>=2);
 });
