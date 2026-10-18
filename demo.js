@@ -6,6 +6,7 @@ import {VoiceRoom} from './voice.js';
 import {PatientSpeaker} from './speaker.js';
 import {drawPatient} from './avatar.js';
 import {patientStyle} from './patient-style.js';
+import {monitorMarkup,animateMonitor} from './vitals-monitor.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
 
@@ -221,8 +222,8 @@ function encounter(){
  $('#app').innerHTML=`<div class="frame ward-experience">${header(p)}<div class="call-layout"><section class="ward-primary">
  <div class="video-frame ward-video" id="videoFrame">
   <video id="patientVideo" class="hide" autoplay muted playsinline aria-label="Simulated patient video"></video>
-  <div class="ward-scene" id="wardScene">${wardScene(p,patientPosition)}</div>
-  <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Hospital ward · illustrated simulation</span></span><span class="video-tag" id="micState">● Ready</span></div>
+  <div class="ward-scene" id="wardScene">${wardScene(p,patientPosition)}</div><div class="monitor-container" id="monitorContainer">${monitorMarkup(p)}</div>
+  <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Hospital ward · interactive simulated patient</span></span><span class="video-tag" id="micState">● Ready</span></div>
   <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div>
  </div>
  <div class="ward-position-panel"><div class="position-label"><strong>Patient position</strong><small>Ask the patient to move, or select a position</small></div><div class="position-buttons"><button class="pose-button" data-pose="lying" aria-pressed="${patientPosition==='lying'}">▰ <span>Lie Down</span></button><button class="pose-button" data-pose="sitting" aria-pressed="${patientPosition==='sitting'}">♙ <span>Sit Up</span></button><button class="pose-button" data-pose="standing" aria-pressed="${patientPosition==='standing'}">♟ <span>Stand by Bed</span></button></div></div>
@@ -242,7 +243,7 @@ function encounter(){
  $('#next').onclick=nextCase;$('#end').onclick=()=>{if(confirm('End this session and review your performance?'))finish();};
  $('#typeForm').onsubmit=e=>{e.preventDefault();askTyped();};
  document.querySelectorAll('[data-pose]').forEach(button=>button.onclick=()=>setPatientPosition(button.dataset.pose));
- setPatientPosition(patientPosition);refresh();tick();
+ setPatientPosition(patientPosition);animateMonitor($('#monitorContainer .clinical-monitor'));refresh();tick();
  
 }
 function refresh(){
