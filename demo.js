@@ -133,10 +133,22 @@ function home(){
  <button class="mode" id="one"><span class="mini-icon">◎</span><span class="mode-title">Practise One Case</span><span class="mode-desc">Choose a patient and start speaking straight away. One encounter at a time.</span><span class="mode-arrow">↗</span></button></div>
  <p class="choice-note">Full extended practice · 10 fictional patients · 10 minutes each · two simulated consultant perspectives</p>
  <div class="case-picker hide" id="picker"><label for="choice">Select a patient</label><select id="choice">${patients.map((p,i)=>`<option value="${i}">Case ${i+1}: ${esc(p.title)} · ${esc(p.kind)}</option>`).join('')}</select><button class="btn btn-main btn-large" style="margin-top:15px;width:100%" id="launch">Start This Case →</button></div>
- <details class="settings"><summary>Optional Gemini patient conversation setup</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The no-login demo works with expressive animated patient illustrations and gender-matched device voices. Mobile speech recognition varies by browser; typing always works. A protected speech service provides more natural AI voices when configured. For natural Gemini dialogue, deploy the secure Cloudflare Worker and set GEMINI_API_KEY as a secret. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><button class="btn" id="saveEndpoint">Save URL</button></details>
+ <details class="settings"><summary>Optional Gemini patient conversation setup</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The no-login demo works with expressive animated patient illustrations and gender-matched device voices. Mobile speech recognition varies by browser; typing always works. A protected speech service provides more natural AI voices when configured. For natural Gemini dialogue, deploy the secure Cloudflare Worker and set GEMINI_API_KEY as a secret. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><div class="gemini-actions"><button class="btn" id="saveEndpoint">Save URL</button><button class="btn" id="testGemini" type="button">Test Gemini connection</button></div><p id="geminiResult" class="gemini-result" role="status" aria-live="polite"></p></details>
  <p class="footnote">Independent educational simulation. The official PACES has eight encounters at five stations, assessed by two examiners per station. The ten-patient mode is additional training, not the official format. No real patient data.</p></div>`;
  $('#full').onclick=()=>begin('exam');$('#one').onclick=()=>{$('#picker').classList.toggle('hide');$('#picker').scrollIntoView({behavior:'smooth',block:'nearest'});};
  $('#launch').onclick=()=>begin('case',$('#choice').value);
+ $('#testGemini').onclick=async()=>{
+  const result=$('#geminiResult'),endpoint=$('#endpoint').value.trim().replace(/\/+$/,'');
+  if(!/^https:\/\/[a-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(endpoint)){result.textContent='Enter and save a valid HTTPS Worker URL first.';return;}
+  const btn=$('#testGemini');btn.disabled=true;result.textContent='Checking Gemini models available to your Cloudflare Worker…';
+  try{
+   const resp=await fetch(endpoint+'/models',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+   const data=await resp.json();
+   if(!resp.ok)throw Error(data.error||'HTTP '+resp.status);
+   result.textContent='Connected. Available text models: '+(data.availableModels||[]).join(', ')+'. Selected: '+(data.chosen||'none')+'. Now test a patient question.';
+  }catch(error){result.textContent='Gemini check failed: '+error.message+'. Ensure the Worker deployed successfully.';}
+  finally{btn.disabled=false;}
+ };
  $('#saveEndpoint').onclick=()=>{const v=$('#endpoint').value.trim().replace(/\/+$/,'');if(v&&!/^https:\/\/[a-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(v)&&!/^http:\/\/localhost(?::\d+)?$/i.test(v)){alert('Enter an HTTPS service URL, not a key.');return;}api=v;try{localStorage.setItem(API_KEY,v);}catch{}alert('Service URL saved on this device.');};
 }
 const briefing=[

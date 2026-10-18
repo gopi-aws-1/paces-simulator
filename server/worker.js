@@ -20,17 +20,56 @@ function patientPrompt(c){
   'This is an adult professional educational role-play only. Do not interpret this as a real medical encounter.'].join('\n\n');
 }
 
+
+let modelCache={at:0,names:[]};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function availableGeminiModels(env){
+ if(modelCache.names.length&&Date.now()-modelCache.at<10*60*1000)return modelCache.names;
+ const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100',{
+  headers:{'x-goog-api-key':env.GEMINI_API_KEY}
+ });
+ if(!response.ok){const err=new Error('Gemini model discovery failed (Google '+response.status+').');err.providerStatus=response.status;throw err;}
+ const data=await response.json();
+ const names=(data.models||[]).filter(model=>(model.supportedGenerationMethods||[]).includes('generateContent')&&/gemini.*flash/.test(model.name||'')).map(model=>String(model.name).replace(/^models\//,''));
+ if(!names.length)throw Error('This Google API key did not return a supported Gemini Flash text model.');
+ modelCache={at:Date.now(),names};return names;
+}
+const scoreModel=name=>{
+ // Prefer stable Flash-Lite for a fast, economical simulated patient; use regular Flash if needed.
+ const stable=!/preview|exp|latest/i.test(name);
+ return (/flash-lite/i.test(name)?80:50)+(stable?20:0)+(/3\.8/.test(name)?8:/3\.7/.test(name)?7:/3\.5/.test(name)?6:/3\.1/.test(name)?5:/3\./.test(name)?4:0);
+};
+function modelCandidates(names,preferred){
+ const ranked=[...names].sort((a,b)=>scoreModel(b)-scoreModel(a));
+ return [...new Set([preferred,...ranked].filter(name=>names.includes(name)))].slice(0,3);
+}
 async function geminiPatient(env,c,question,history){
  const contents=history.slice(-20).filter(m=>m&&['you','patient'].includes(m.who)&&typeof m.text==='string').map(m=>({role:m.who==='you'?'user':'model',parts:[{text:truncate(m.text,700)}]}));
  contents.push({role:'user',parts:[{text:question}]});
- const model=env.GEMINI_MODEL||'gemini-2.5-flash';
- const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{
-  method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
-  body:JSON.stringify({systemInstruction:{parts:[{text:patientPrompt(c)+'\n\nRespond to the exact question in one or two naturally spoken sentences. Keep the case facts consistent, use the previous conversation, and avoid repetitive stock phrases. Do not invent clinical facts. Do not provide exam hints.'}]},contents,generationConfig:{temperature:0.55,maxOutputTokens:220}})
- });
- if(!response.ok)throw Error('Gemini service returned '+response.status);
- const data=await response.json();
- return truncate((data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(' ').trim(),900);
+ const candidates=modelCandidates(await availableGeminiModels(env),env.GEMINI_MODEL||'gemini-2.5-flash');
+ const body=JSON.stringify({systemInstruction:{parts:[{text:patientPrompt(c)+'\n\nRespond to the exact question in one or two naturally spoken sentences. Keep the case facts consistent, use the previous conversation, and avoid repetitive stock phrases. Do not invent clinical facts. Do not provide exam hints.'}]},contents,generationConfig:{temperature:0.55,maxOutputTokens:300}});
+ let lastError;
+ for(const model of candidates){
+  for(let attempt=0;attempt<2;attempt++){
+   let response;
+   try{response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{
+    method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},body
+   });}catch(error){lastError=new Error('Gemini network request failed.');if(attempt===0){await sleep(700);continue;}break;}
+   if(response.ok){
+    const data=await response.json();
+    const answer=truncate((data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(' ').trim(),900);
+    if(!answer)throw Error('Gemini returned no usable patient dialogue.');
+    return {answer,model};
+   }
+   lastError=new Error('Gemini model '+model+' returned Google HTTP '+response.status+'.');
+   lastError.providerStatus=response.status;lastError.model=model;
+   if(![408,429,500,502,503,504].includes(response.status))break;
+   if(attempt===0)await sleep(700+Math.floor(Math.random()*350));
+  }
+  // Invalid key or permission problems cannot be fixed by trying a different model.
+  if([400,401,402,403].includes(lastError?.providerStatus))break;
+ }
+ throw lastError||new Error('Gemini did not answer the request.');
 }
 
 function cors(origin,allowed){
@@ -103,7 +142,7 @@ export default {
   if(origin!==allowed)return json({error:'Origin not allowed'},403,headers);
   if(request.method!=='POST')return json({error:'Use POST'},405,headers);
   const path=new URL(request.url).pathname.replace(/\/+$/,'');
-  if(!['/token','/evaluate','/video/create','/video/end','/speech','/chat'].includes(path))return json({error:'Not found'},404,headers);
+  if(!['/token','/evaluate','/video/create','/video/end','/speech','/chat','/models'].includes(path))return json({error:'Not found'},404,headers);
   const length=Number(request.headers.get('content-length')||'0');
   if(length>40000)return json({error:'Request too large'},413,headers);
   if(env.API_LIMITER){
@@ -116,6 +155,13 @@ export default {
   if(path==='/video/end'){
    try{await endVideo(env,input.conversationId);return json({ended:true},200,headers);}catch(error){return json({error:error.message},502,headers);}
   }
+  if(path==='/models'){
+   if(!env.GEMINI_API_KEY)return json({error:'Gemini API key not configured.'},503,headers);
+   try{
+    const names=await availableGeminiModels(env);
+    return json({availableModels:names,preferred:env.GEMINI_MODEL||null,chosen:modelCandidates(names,env.GEMINI_MODEL||'gemini-2.5-flash')[0]||null},200,headers);
+   }catch(error){return json({error:error.message||'Model discovery unavailable',providerStatus:error.providerStatus||null},502,headers);}
+  }
   const id=Number(input.caseId),c=Number.isInteger(id)?getCase(id):null;
   if(!c)return json({error:'Unknown simulated patient'},400,headers);
   try{
@@ -127,8 +173,8 @@ export default {
     if(!env.GEMINI_API_KEY)return json({error:'Gemini has not been configured.'},503,headers);
     const question=truncate(input.question,1200).trim();
     if(!question)return json({error:'Question required'},400,headers);
-    const answer=await geminiPatient(env,c,question,Array.isArray(input.history)?input.history:[]);
-    return answer?json({answer},200,headers):json({error:'No response from Gemini'},502,headers);
+    const result=await geminiPatient(env,c,question,Array.isArray(input.history)?input.history:[]);
+    return json(result,200,headers);
    }
    if(!env.OPENAI_API_KEY)return json({error:'Live AI voice has not been configured by the site owner.'},503,headers);
    if(path==='/speech'){
@@ -154,6 +200,6 @@ export default {
    ]);
    return json({assessors:[{name:'Consultant 1',role:'Clinical reasoning & examination',feedback:clinical},
     {name:'Consultant 2',role:'Communication & patient welfare',feedback:communication}],disclaimer:'AI-generated educational feedback, not official PACES scoring.'},200,headers);
-  }catch(error){return json({error:error.message||'AI service temporarily unavailable'},502,headers);}
+  }catch(error){return json({error:error.message||'AI service temporarily unavailable',providerStatus:error.providerStatus||null,model:error.model||null},502,headers);}
  }
 };
