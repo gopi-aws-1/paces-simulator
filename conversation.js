@@ -153,14 +153,56 @@ function scripted(c,q,history){
  }
  return best;
 }
+/** A patient should not give a medical-history answer to a procedural remark.
+ * This deliberately covers only non-clinical conversational turns; leave open
+ * clinical questions to the AI or the authored case fact bank. */
+function nextUnsaid(lines,history){
+ const recent=history.filter(m=>m?.who==='patient').slice(-5).map(m=>CLEAN(m.text));
+ return lines.find(line=>!recent.includes(CLEAN(line)))||lines[(recent.length-1+lines.length)%lines.length];
+}
+export function immediatePatientReply(c,input,history=[]){
+ if(!c||!String(input||'').trim())return null;
+ const s=CLEAN(input),h=Array.isArray(history)?history:[];
+ const records=/\b(notes?|records?|reports?|results?|charts?|scans?|letters?|investigations?|test results)\b/;
+ const reviewing=/\b(check|look|review|read|go through|pull up|see|open|fetch|find|take a look|have a look|go over)\b/;
+ const pending=/\b(let me|allow me|im going to|i am going to|i will|ill|i need to|i want to|i havent|i have not|ive not|not yet|first|before i|give me)\b/;
+ const checkPermission=/\b(can i|may i|could i|do you mind if i|would it be alright if i)\b/;
+ const pastReview=/\b(i have reviewed|ive reviewed|i have looked|ive looked|i have checked|ive checked|ive now seen|i can see)\b/;
+ if(records.test(s)&&reviewing.test(s)&&(pending.test(s)||checkPermission.test(s))&&!pastReview.test(s)){
+  return result(nextUnsaid([
+   'Of course, doctor. Take your time.',
+   'That’s alright. I’ll wait.',
+   'Okay, doctor. Thank you.'
+  ],h),'Acknowledgement');
+ }
+ if(/\b(one moment|just a moment|just a second|give me a minute|give me a moment|bear with me|hold on|hang on|need a moment)\b/.test(s)){
+  return result(nextUnsaid(['Of course.','No problem, doctor.','Take your time.'],h),'Acknowledgement');
+ }
+ if(c.id===0&&records.test(s)&&pastReview.test(s)&&!/(\bwhat\b|\bwhy\b|\bwhen\b|\bhow\b)/.test(s)){
+  return result(nextUnsaid([
+   'What did you find, doctor?',
+   'Does it say what the shadow might be?',
+   'Please, can you tell me what the scan showed?'
+  ],h),'Understanding');
+ }
+ if(/\b(i(?: will|ll)? (?:explain|talk you through)|let me explain|i want to explain|we can discuss|i will go through|ill go through)\b/.test(s)){
+  return result(nextUnsaid(['All right, I’m listening.','Okay, doctor.','Please, go ahead.'],h),'Acknowledgement');
+ }
+ return null;
+}
 function backup(c,q,h){
  const s=CLEAN(q);
- const last=h.filter(m=>m.who==='patient').at(-1)?.text||'';
+ const last=h.filter(m=>m?.who==='patient').at(-1)?.text||'';
  if(/^(what do you mean|could you explain|tell me more|go on|why is that)/.test(s)&&last)
-  return 'Well, '+(c.id===0?'I was told there was a shadow on my scan, but I still do not understand what it means.':'I can try to explain how it has been affecting me. What would you like to know?');
- if(/\?$/.test(String(q).trim())||/^(do|does|did|have|has|are|is|were|was|can|could|would|will|what|when|where|why|how|which)/.test(s))
-  return 'I’m not sure, doctor. Could you explain what you mean?';
- return 'I see, doctor. Could you tell me a little more?';
+  return c.id===0?'I was told there was a shadow on my scan. I really want to understand what that means.':
+   'I can try to explain how it has been affecting me. Which part would you like me to describe?';
+ const asksQuestion=/\?$/.test(String(q).trim())||/^(do|does|did|have|has|are|is|were|was|can|could|would|will|what|when|where|why|how|which|tell me|describe)/.test(s);
+ if(asksQuestion)return nextUnsaid([
+  'I’m sorry, I don’t know the answer to that.',
+  'I’m not sure about that, doctor.',
+  'I don’t really know, I’m afraid.'
+ ],h);
+ return nextUnsaid(['All right, doctor.','Okay.','I understand.'],h);
 }
 /** React to the doctor's actual manner before searching for symptom keywords.
  * No scripted patient claims a normal test result or rules out serious illness. */
@@ -209,6 +251,8 @@ const result=(text,topic)=>({text,topics:topic?[topic]:[]});
 export function naturalReply(c,input,history=[]){
  if(!c||!String(input||'').trim())return result('Sorry doctor, could you say that again?');
  const s=CLEAN(input),h=Array.isArray(history)?history:[],name=c.name.split(' ')[0];
+ const immediate=immediatePatientReply(c,input,h);
+ if(immediate)return immediate;
  const interpersonal=interpersonalReply(c,s);
  if(interpersonal)return interpersonal;
 
