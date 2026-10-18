@@ -31,7 +31,7 @@ export class PatientSpeaker {
    try{
     this.controller=new AbortController();
     const res=await fetch(endpoint.replace(/\/+$/,'')+'/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:patient?.id,text:String(text).slice(0,900)}),signal:this.controller.signal});
-    if(!res.ok)throw Error('Speech service unavailable');
+    if(!res.ok){const info=await res.json().catch(()=>({}));throw Error(info.error||'Speech service returned '+res.status);}
     const blob=await res.blob();
     if(own!==this.token)return;
     const url=URL.createObjectURL(blob);const audio=new Audio(url);this.audio=audio;
@@ -51,10 +51,10 @@ export class PatientSpeaker {
     audio.onended=()=>{URL.revokeObjectURL(url);finish();};
     await audio.play();
     if(own!==this.token)return;
-    this.active=true;this.onSpeaking(true);return;
+    this.active=true;this.onSpeaking(true);this.onStatus('Gemini AI patient voice playing.');return;
    }catch(error){
     if(own!==this.token)return;
-    if(error?.name!=='AbortError')this.onStatus('Using the device voice — expressive AI audio was unavailable.');
+    if(error?.name!=='AbortError')this.onStatus('Gemini speech unavailable ('+String(error?.message||'request failed').slice(0,110)+'). Using device voice.');
    }
   }
   if(own===this.token)this.browserSpeech(text,patient,finish,own);

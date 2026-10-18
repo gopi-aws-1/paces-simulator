@@ -5,7 +5,7 @@ export class VoiceRoom {
   this.onStatus=onStatus;this.onCandidate=onCandidate;this.onPatient=onPatient;this.onSpeaking=onSpeaking;
   this.speaker=speaker||new PatientSpeaker({onSpeaking,onStatus});this.ownSpeaker=!speaker;this.caseRecord=null;
   this.mode=null;this.pc=null;this.dc=null;this.stream=null;this.audio=null;
-  this.recognition=null;this.speech=null;this.active=false;this.reply=null;this.busy=false;
+  this.recognition=null;this.speech=null;this.active=false;this.reply=null;this.busy=false;this.endpoint='';
  }
  status(message){this.onStatus(message);}
  async connectAI(endpoint,caseId){
@@ -43,11 +43,11 @@ export class VoiceRoom {
    this.status('Microphone connected. Talk to the patient naturally.');
   }catch(error){this.stop();throw error;}
  }
- async connectBrowser(caseRecord,answer){
+ async connectBrowser(caseRecord,answer,endpoint=''){
   this.stop();
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R||!('speechSynthesis' in window))throw Error('Hands-free browser speech is unavailable here. Try Chrome or Edge, or type your questions.');
-  this.mode='browser';this.caseRecord=caseRecord;this.reply=answer;this.active=true;
+  this.mode='browser';this.caseRecord=caseRecord;this.reply=answer;this.endpoint=endpoint;this.active=true;
   this.status('Browser microphone ready. Patient responses may use Gemini if configured.');
   this.say(caseRecord.opening,()=>this.listen());
  }
@@ -55,7 +55,7 @@ export class VoiceRoom {
   if(!this.active)return;
   // The same female/male voice profile is used for typed and microphone
   // conversations. Do not restart recognition until speech has finished.
-  this.speaker.speak(text,{patient:this.caseRecord,done:()=>{if(this.active)done?.();}});
+  this.speaker.speak(text,{patient:this.caseRecord,endpoint:this.endpoint,preferAI:!!this.endpoint,done:()=>{if(this.active)done?.();}});
  }
   listen(){
   if(!this.active||this.mode!=='browser')return;
@@ -82,7 +82,7 @@ export class VoiceRoom {
   this.send({type:'response.create'});return true;
  }
  stop(){
-  this.active=false;this.mode=null;this.busy=false;
+  this.active=false;this.mode=null;this.busy=false;this.endpoint='';
   if(this.recognition){const r=this.recognition;this.recognition=null;r.onend=null;r.onresult=null;try{r.abort();}catch{}}
   try{window.speechSynthesis?.cancel();}catch{}
   try{this.dc?.close();}catch{}this.dc=null;

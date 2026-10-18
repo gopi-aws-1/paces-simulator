@@ -7,6 +7,7 @@ ALLOWED_ORIGIN = "https://gopi-aws-1.github.io"
 REALTIME_MODEL = "gpt-realtime-2.1"
 ASSESSOR_MODEL = "gpt-5-mini"
 GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_TTS_MODEL = "gemini-3.1-flash-tts-preview"
 SPEECH_MODEL = "gpt-4o-mini-tts"
 
 [[ratelimits]]
