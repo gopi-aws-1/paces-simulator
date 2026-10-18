@@ -29,12 +29,23 @@ test('UI enforces bounded response and speech waits, preserving the monitor',()=
  const ui=readFileSync(new URL('../demo.js',import.meta.url),'utf8');
  const speaker=readFileSync(new URL('../speaker.js',import.meta.url),'utf8');
  const workflow=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
- assert.ok(PATIENT_REPLY_DEADLINE_MS<=3000);
+ assert.ok(PATIENT_REPLY_DEADLINE_MS>=4500&&PATIENT_REPLY_DEADLINE_MS<=6000);
  assert.ok(AI_SPEECH_START_DEADLINE_MS<=2000);
  assert.match(ui,/await requestPatientReply\(fetch/);
+ assert.match(ui,/const immediate=immediatePatientReply\(/);
+ assert.match(ui,/aiReplyUnavailableUntil=Date\.now\(\)\+30000/);
  assert.match(ui,/return naturalReply\(c\(\),text,r\(\)\.messages\)\.text/);
  assert.match(speaker,/controller\.abort\(\)/);
  assert.match(speaker,/this\.browserSpeech\(text,patient,finish,own,start\)/);
  assert.match(ui,/animateMonitor\(/);
  assert.match(workflow,/response-timing\.js _site\//);
+});
+
+test('spoken reply appears in the transcript without waiting for voice synthesis',()=>{
+ const ui=readFileSync(new URL('../demo.js',import.meta.url),'utf8');
+ const voice=readFileSync(new URL('../voice.js',import.meta.url),'utf8');
+ assert.match(ui,/log\('patient',answer\); \/\/ Show the response immediately/);
+ const i=voice.indexOf('this.onPatient(result);');
+ const j=voice.indexOf('this.say(result,');
+ assert.ok(i>=0&&j>i,'Browser-microphone transcript should be available before patient audio playback');
 });
