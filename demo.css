@@ -195,3 +195,30 @@ main:has(.ward-experience){max-width:1680px;padding:18px 18px 65px}
 @keyframes monitor-sweep{0%{stroke-dashoffset:540}100%{stroke-dashoffset:0}}
 @media(max-width:620px){.monitor-container{left:8px;top:19%;width:135px}.clinical-monitor{padding:5px;border-width:4px}.monitor-line{height:48px}.monitor-footer{padding-top:3px}.monitor-disclaimer{font-size:6px}}
 @media(prefers-reduced-motion:reduce){.monitor-trace{animation:none!important}.ward-experience .pose-button,.ward-experience .call-actions .btn{transition:none!important}}
+
+
+/* Photographic ward mode: do not mistake a still stand-in for live video. */
+.ward-video .photo-stage{position:absolute;inset:0;z-index:1;background:#b6cbd4;overflow:hidden;isolation:isolate}
+.ward-video .ward-photograph{display:block;width:100%;height:100%;object-fit:cover;object-position:center 48%;animation:ward-camera 19s ease-in-out infinite alternate;transform-origin:50% 50%;filter:saturate(.96) contrast(1.03)}
+.ward-video .photo-light{position:absolute;inset:0;background:linear-gradient(180deg,#05172a3d 0%,transparent 28%,transparent 65%,#0a243f77 100%);pointer-events:none}
+.ward-video .patient-presence{position:absolute;top:15px;right:15px;display:flex;gap:8px;align-items:center;border:1px solid #ffffff37;background:#092a44e8;color:#fff;padding:10px 13px;border-radius:12px;font-weight:700;font-size:clamp(10px,.85vw,13px);box-shadow:0 3px 14px #00101c55}
+.ward-video .presence-indicator{height:8px;width:8px;border-radius:50%;background:#40e6ae;box-shadow:0 0 10px #28e4b2}
+.ward-video .presence-bars{display:flex;align-items:center;height:14px;gap:2px}
+.ward-video .presence-bars i{width:3px;height:4px;background:#59f2d6;border-radius:3px}
+.ward-video.patient-speaking .presence-bars i{animation:presence-talk .56s ease-in-out infinite alternate}
+.ward-video.patient-speaking .presence-bars i:nth-child(2){animation-delay:.13s}
+.ward-video.patient-speaking .presence-bars i:nth-child(3){animation-delay:.28s}
+.ward-video.patient-speaking .presence-bars i:nth-child(4){animation-delay:.09s}
+.ward-video.patient-speaking .ward-photograph{animation-duration:12s;filter:saturate(1.04) contrast(1.04)}
+.ward-video .photo-disclaimer{position:absolute;bottom:10px;right:12px;background:#102b3aa1;padding:5px 8px;border-radius:7px;color:#e8f3f6;font-size:clamp(8px,.62vw,10px);max-width:50%;text-align:right}
+.ward-video.pose-illustrated .photo-stage,.ward-video.photo-unavailable .photo-stage,.ward-video.video-live .photo-stage{display:none}
+.ward-video:not(.pose-illustrated):not(.photo-unavailable):not(.video-live) .ward-scene{visibility:hidden}
+.ward-video.video-live .monitor-container{display:none}
+.ward-video .ward-scene{z-index:0}
+.ward-video .monitor-container{z-index:2}
+.ward-video .video-nameplate,.ward-video .video-top{z-index:5}
+.ward-video .photo-stage{pointer-events:none}
+@keyframes presence-talk{to{height:15px}}
+@keyframes ward-camera{0%{transform:scale(1.01) translate(0,0)}100%{transform:scale(1.07) translate(-.5%,-.8%)}}
+@media(max-width:620px){.ward-video .patient-presence{top:8px;right:8px;padding:6px 8px;font-size:9px}.ward-video .photo-disclaimer{max-width:64%;font-size:7px}.ward-video .ward-photograph{object-position:55% center}}
+@media(prefers-reduced-motion:reduce){.ward-video .ward-photograph,.ward-video .presence-bars i{animation:none!important}}
