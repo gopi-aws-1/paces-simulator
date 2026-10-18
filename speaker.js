@@ -24,9 +24,11 @@ export class PatientSpeaker {
   let sum=0;for(const v of this.samples){const x=(v-128)/128;sum+=x*x;}
   return Math.min(1,Math.sqrt(sum/this.samples.length)*4.0);
  }
- async speak(text,{patient,endpoint='',preferAI=false,done=()=>{}}={}){
+ async speak(text,{patient,endpoint='',preferAI=false,onStart=()=>{},done=()=>{}}={}){
   this.stop();const own=++this.token;
-  const finish=()=>{if(own!==this.token)return;this.active=false;this.level=0;this.onSpeaking(false);done();};
+  let started=false;
+  const start=()=>{if(own!==this.token||started)return;started=true;this.active=true;this.onSpeaking(true);onStart();};
+  const finish=()=>{if(own!==this.token)return;if(!started)onStart();this.active=false;this.level=0;this.onSpeaking(false);done();};
   if(preferAI&&endpoint){
    try{
     this.controller=new AbortController();
@@ -35,7 +37,9 @@ export class PatientSpeaker {
     const blob=await res.blob();
     if(own!==this.token)return;
     const url=URL.createObjectURL(blob);const audio=new Audio(url);this.audio=audio;
-    audio.preload='auto';audio.onended=finish;audio.onerror=()=>{URL.revokeObjectURL(url);if(own===this.token)this.browserSpeech(text,patient,finish,own);};
+    audio.preload='auto';
+    audio.onplaying=start;
+    audio.onerror=()=>{URL.revokeObjectURL(url);if(own===this.token){audio.onerror=null;this.browserSpeech(text,patient,finish,own,start);}};
     // WebAudio amplitude follows the actual produced voice where permitted.
     try{
      const AC=window.AudioContext||window.webkitAudioContext;
@@ -51,15 +55,15 @@ export class PatientSpeaker {
     audio.onended=()=>{URL.revokeObjectURL(url);finish();};
     await audio.play();
     if(own!==this.token)return;
-    this.active=true;this.onSpeaking(true);this.onStatus('Gemini AI patient voice playing.');return;
+    start();this.onStatus('Gemini AI patient voice playing.');return;
    }catch(error){
     if(own!==this.token)return;
     if(error?.name!=='AbortError')this.onStatus('Gemini speech unavailable ('+String(error?.message||'request failed').slice(0,110)+'). Using device voice.');
    }
   }
-  if(own===this.token)this.browserSpeech(text,patient,finish,own);
+  if(own===this.token)this.browserSpeech(text,patient,finish,own,start);
  }
- browserSpeech(text,patient,finish,own){
+ browserSpeech(text,patient,finish,own,start){
   if(!('speechSynthesis' in window)){finish();return;}
   const profile=patientStyle(patient),u=new SpeechSynthesisUtterance(text);
   u.lang='en-GB';u.rate=profile.rate;u.pitch=profile.pitch;u.volume=1;
@@ -67,7 +71,7 @@ export class PatientSpeaker {
   // on every utterance and use the explicit gender-name preferences.
   const voices=window.speechSynthesis.getVoices(),chosen=selectDeviceVoice(voices,patient);
   if(chosen){u.voice=chosen;u.lang=chosen.lang;}
-  u.onstart=()=>{if(own!==this.token)return;this.active=true;this.onSpeaking(true);};
+  u.onstart=start;
   u.onend=finish;u.onerror=finish;
   this.utterance=u;
   try{window.speechSynthesis.speak(u);}catch{finish();}
