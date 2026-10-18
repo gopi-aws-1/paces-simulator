@@ -5,7 +5,9 @@ import {naturalReply} from './conversation.js';
 import {VoiceRoom} from './voice.js';
 import {PatientSpeaker} from './speaker.js';
 import {drawPatient} from './avatar.js';
-import {wardScene} from './ward-scene.js';
+// Ward artwork is lazy-loaded to keep the homepage functional even if the asset is unavailable.
+let wardScene=null;
+async function loadWardScene(){try{const module=await import('./ward-scene.js');wardScene=module.wardScene;}catch(err){console.error('Ward artwork unavailable:',err);}}
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
 const patients=[...base,...extraCases],$=s=>document.querySelector(s);
@@ -126,7 +128,7 @@ function encounter(){
  $('#app').innerHTML=`<div class="frame ward-experience">${header(p)}<div class="call-layout"><section class="ward-primary">
  <div class="video-frame ward-video" id="videoFrame">
   <video id="patientVideo" class="hide" autoplay muted playsinline aria-label="Simulated patient video"></video>
-  <div class="ward-scene" id="wardScene">${wardScene(p,patientPosition)}</div>
+  <div class="ward-scene" id="wardScene">${wardScene?wardScene(p,patientPosition):'<div class="ward-loading" id="wardLoading">Preparing the hospital room…</div>'}</div>
   <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Hospital ward · illustrated simulation</span></span><span class="video-tag" id="micState">● Ready</span></div>
   <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div>
  </div>
@@ -148,6 +150,7 @@ function encounter(){
  $('#typeForm').onsubmit=e=>{e.preventDefault();askTyped();};
  document.querySelectorAll('[data-pose]').forEach(button=>button.onclick=()=>setPatientPosition(button.dataset.pose));
  setPatientPosition(patientPosition);refresh();tick();
+ if(!wardScene)loadWardScene().then(()=>{if(session?.stage==='patient'&&$('#wardScene')&&wardScene){$('#wardScene').innerHTML=wardScene(c(),patientPosition);setPatientPosition(patientPosition);}});
 }
 function refresh(){
  if(session?.stage!=='patient')return;
