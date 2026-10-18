@@ -98,11 +98,12 @@ let api='',session=null,recognition=null,voice=null,token=0,cameraCanvas=null,ca
 const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},onStatus:announce});
 try{api=localStorage.getItem(API_KEY)||'';}catch{}
 function announce(s){const e=$('#liveStatus');if(e)e.textContent=s;}
-function speak(text,voiceIndex=0,done=()=>{}){
+function speak(text,voiceIndex=0,done=()=>{},onStart=()=>{}){
  const n=token;
  // Voice 2 means current patient; consultants use contrasting adult voices.
  const person=voiceIndex===2?c():voiceIndex===1?{id:1,sex:'Man'}:{id:0,sex:'Woman'};
  speaker.speak(text,{patient:person,endpoint:voiceIndex===2?api:'',preferAI:voiceIndex===2&&!!api,
+  onStart:()=>{if(n===token)onStart();},
   done:()=>{if(n===token)done();}});
 }
 function stop(){
@@ -258,16 +259,31 @@ async function typedReply(text){
  return naturalReply(c(),text,r().messages).text;
 }
 async function askTyped(){
- const input=$('#typed'),q=input.value.trim();if(!q)return;
+ const input=$('#typed'),q=input.value.trim();if(!q||input.disabled)return;
  if(videoCall){announce('Live video mode listens inside the video call; speak there.');return;}
- input.value='';log('you',q);
- if(voice?.active&&voice.mode==='ai'){if(!voice.sendText(q))announce('AI connection is not ready. Reconnect or try again.');return;}
- announce('Patient is considering your question…');const answer=await typedReply(q);if(session?.stage!=='patient')return;log('patient',answer);
+ const caseId=c().id;input.value='';input.disabled=true;
+ const submit=$('#typeForm button[type="submit"]');if(submit)submit.disabled=true;
+ log('you',q);
+ if(voice?.active&&voice.mode==='ai'){
+  input.disabled=false;if(submit)submit.disabled=false;
+  if(!voice.sendText(q))announce('AI connection is not ready. Reconnect or try again.');
+  return;
+ }
+ announce('Patient is considering your question…');
+ let answer;
+ try{answer=await typedReply(q);}
+ catch{answer='Sorry doctor, could you repeat that?';}
+ if(session?.stage!=='patient'||c().id!==caseId)return;
+ announce(api?'Patient preparing a spoken response…':'Patient speaking…');
+ const finish=()=>{
+  if(session?.stage==='patient'&&c().id===caseId){input.disabled=false;if(submit)submit.disabled=false;}
+ };
+ const started=()=>{if(session?.stage==='patient'&&c().id===caseId)log('patient',answer);};
  if(voice?.active&&voice.mode==='browser'){
   voice.busy=true;
   try{voice.recognition?.abort();}catch{}
-  speak(answer,2,()=>{if(voice?.active){voice.busy=false;voice.listen();}});
- }else speak(answer,2);
+  speak(answer,2,()=>{finish();if(voice?.active){voice.busy=false;voice.listen();}},started);
+ }else speak(answer,2,finish,started);
 }
 async function connect(){
  if(voice?.active||videoCall){announce('Microphone already active. Speak to your patient.');return;}
