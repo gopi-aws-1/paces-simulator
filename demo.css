@@ -244,3 +244,56 @@ main:has(.ward-experience){max-width:1680px;padding:18px 18px 65px}
 @media(prefers-reduced-motion:reduce){
  .ward-video .ward-photograph{animation:none!important;transform:none!important}
 }
+
+
+/* Guided PACES examiner debrief: professional and readable at every viewport */
+.feedback-preference{border:1px solid #365568;border-radius:17px;padding:18px;margin:24px 0 18px;background:#112f41;color:#e5f4f9;display:grid;gap:10px}
+.feedback-preference legend{font-weight:800;padding:0 8px;font-size:15px}
+.feedback-preference label{display:flex;align-items:center;gap:11px;cursor:pointer;padding:13px;border-radius:12px;background:#193c4e;border:1px solid #426277}
+.feedback-preference label:has(input:checked){background:#194c53;border-color:#44cdbb}
+.feedback-preference input{accent-color:#31d5b6;min-width:17px;min-height:17px}
+.feedback-preference span{display:grid;gap:4px}.feedback-preference strong{font-size:14px}.feedback-preference small{color:#b8cdda;font-size:12px}
+.review-area:has(.feedback-report){max-width:1160px}
+.feedback-report{display:grid;gap:18px}
+.feedback-casehead{padding:22px 24px;background:linear-gradient(135deg,#173a53,#0c2b3f);border:1px solid #41677b;border-radius:16px}
+.feedback-casehead h2{font-size:clamp(23px,3.3vw,31px);margin:8px 0}.feedback-casehead p{font-size:13px;color:#bfd3df;margin:0}
+.feedback-disclaimer{padding:13px 16px;font-size:13px;line-height:1.6;border-left:3px solid #91b9cd;background:#122f41;border-radius:7px;margin:0;color:#dceaf1}
+.feedback-section{border:1px solid #385567;background:#102b3c;padding:20px 22px;border-radius:17px}
+.feedback-section>h3{font-size:21px;letter-spacing:-.5px;margin:0 0 12px}.feedback-section h4{margin:18px 0 8px;font-size:14px;color:#b8f5e6}
+.feedback-explainer{font-size:13px;line-height:1.5;color:#bcd2de}
+.skill-rating-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.skill-rating{background:#173a4c;border:1px solid #34586a;border-radius:11px;padding:13px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:9px;font-size:13px}
+.skill-rating strong{color:#79efda;margin-right:5px}.skill-rating small{grid-column:1/-1;color:#bbd0dd;line-height:1.5}
+.skill-pill{font-size:11px;font-weight:800;white-space:normal;text-align:center;max-width:160px;padding:6px 9px;border-radius:8px;border:1px solid #658395;background:#284456;color:#f2f8fc}
+.skill-pill.rating-good{background:#1b4a45;border-color:#579486;color:#d2fff1}.skill-pill.rating-warn{background:#534327;border-color:#94784a;color:#fdf0cf}.skill-pill.rating-low{background:#5c3436;border-color:#966366;color:#ffe6e6}.skill-pill.rating-na{background:#283f52;border-color:#56738a;color:#cfdfeb}
+.consultant-feedback-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.consultant-assessment{border:1px solid #426174;border-radius:15px;padding:19px;background:linear-gradient(145deg,#173a4e,#102a3c);min-width:0}
+.consultant-heading{display:flex;align-items:center;gap:12px}.consultant-heading h3{font-size:17px;margin:0 0 2px}.consultant-heading p{font-size:12px;color:#b8cfda;margin:0}
+.consultant-bubble{flex:none;width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#bfdbe3;color:#12334a;font-weight:900}
+.consultant-overview{font-size:13px;color:#dbeaf0;line-height:1.55;margin:14px 0}
+.evidence-list{list-style:none;display:grid;gap:10px;margin:7px 0;padding:0}
+.evidence-list li{font-size:13px;color:#e6f4f8;padding:11px;border-radius:9px;background:#214254;line-height:1.5}
+.evidence-list strong{display:block;margin-bottom:4px;font-size:12px}.evidence-list p{margin:5px 0 0;font-size:12px;color:#d4e5ed}
+.evidence-list blockquote{margin:5px 0 0;padding:9px 11px;color:#d5f8f1;background:#113643;border-left:3px solid #61cdbd;border-radius:0 6px 6px 0;font-size:12px;overflow-wrap:anywhere}
+.feedback-empty,.feedback-limitation{font-size:12px;color:#b9cddd;line-height:1.6;margin:10px 0}
+.feedback-limitation{border-top:1px solid #416276;padding-top:10px}
+.safety-review{border:1px solid #b0777c;background:#492f37;padding:10px;border-radius:9px;font-size:12px}
+.practice-steps{display:grid;gap:9px;margin:13px 0 0;padding-left:24px;color:#d9ecf3;line-height:1.55;font-size:14px}
+.practice-steps li{padding:4px 2px}
+.feedback-transcript{background:#0c2738;border:1px solid #36546b;border-radius:11px;padding:14px;color:#e9f5fb}
+.feedback-transcript summary{cursor:pointer;font-size:13px;font-weight:800}
+.feedback-transcript p{color:#d9e8f2;font-size:12px;line-height:1.5;margin:9px 0}
+.ai-review{background:#183a4e;border:1px solid #3b6475;padding:16px;border-radius:12px;margin:9px 0}
+.ai-review strong{color:#b4eddc}.ai-review p{font-size:13px;color:#e0ebf0;line-height:1.6;margin:10px 0 0}
+.ai-note{font-size:12px;color:#a8c9d5;background:#102d40;border:1px solid #365266;padding:11px;border-radius:9px}
+.debrief-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start;margin:20px 0 27px}.debrief-actions .btn{min-height:50px}
+.final-summary{background:#132f42;border:1px solid #3b5c70;border-radius:18px;padding:23px;margin:15px 0 20px}
+.final-summary h2{font-size:26px;margin:8px 0}.final-summary h3{font-size:19px;margin-top:24px}
+.final-summary>p{color:#bed2de;font-size:13px;line-height:1.6}
+.summary-skill-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.summary-skill{background:#1b4054;border:1px solid #416173;padding:13px;border-radius:10px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 7px;font-size:12px;align-items:center}
+.summary-skill strong{color:#83ecda}.summary-skill span:nth-of-type(2){font-weight:800}
+.summary-skill small{grid-column:1/-1;color:#b5c9d8}
+.individual-reviews{margin:24px 0 12px;font-size:23px}.case-results .feedback-section{margin-top:12px}
+@media(max-width:760px){.consultant-feedback-grid,.skill-rating-grid,.summary-skill-grid{grid-template-columns:1fr}.feedback-section{padding:15px}.feedback-casehead{padding:17px}.feedback-section>h3{font-size:19px}}
+@media(max-width:420px){.skill-rating{grid-template-columns:1fr;align-items:start}.skill-pill{justify-self:start}.debrief-actions{display:grid}.debrief-actions button{width:100%}}
