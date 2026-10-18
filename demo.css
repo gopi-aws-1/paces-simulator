@@ -94,3 +94,64 @@ input,select,textarea{font-size:16px}
  .call-actions .btn{font-size:12px}
  .dedication-banner h2{font-size:14px}
 }
+
+
+/* Interactive hospital-bay consultation: contained to the patient experience. */
+.ward-experience{max-width:1410px;margin:auto}
+.ward-experience .call-layout{grid-template-columns:minmax(0,1fr) 345px;gap:17px;align-items:start}
+.ward-experience .ward-video{aspect-ratio:1000/620;border:1px solid #b7cbd2;border-radius:17px;background:#e0e6e6;box-shadow:0 18px 45px #010c1833}
+.ward-scene,.ward-art{position:absolute;inset:0;width:100%;height:100%}
+.ward-art{display:block;object-fit:cover}
+.ward-art .ward-person{transition:transform .45s ease}
+.ward-art .body-sitting,.ward-art .body-standing{opacity:0;transition:opacity .3s ease}
+.ward-art.pose-sitting .body-sitting,.ward-art.pose-standing .body-standing{opacity:1}
+.ward-art.pose-sitting .body-lying,.ward-art.pose-standing .body-lying{opacity:0}
+.ward-art.pose-standing .ward-bed{opacity:.78}
+.ward-art .ward-head{transform-box:fill-box;transform-origin:center}
+.ward-art .ward-eyes{animation:ward-blink 5s infinite}
+.ward-art .ward-person{animation:ward-breathe 3.3s ease-in-out infinite}
+.ward-art .ward-mouth{animation:ward-breathe 1.4s ease-in-out infinite}
+@keyframes ward-blink{0%,94%,98%,100%{opacity:1}96%{opacity:0}}
+@keyframes ward-breathe{0%,100%{opacity:1;transform:translateY(0)}50%{opacity:.96;transform:translateY(2px)}}
+.ward-experience .video-top{z-index:3}
+.ward-experience .video-nameplate{z-index:3}
+.ward-experience .video-tag{background:#123348df;border-color:#ffffff62}
+.ward-experience .nameplate{background:#0e263add}
+.ward-position-panel{display:flex;align-items:center;gap:12px;padding:13px;margin-top:10px;border-radius:15px;background:#f7fafb;color:#16354d;border:1px solid #cadde2}
+.position-label{width:150px;flex-shrink:0}
+.position-label strong,.position-label small{display:block}
+.position-label strong{font-size:13px;font-weight:800}
+.position-label small{font-size:11px;line-height:1.4;color:#637b8b;margin-top:4px}
+.position-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;flex:1;min-width:0}
+.pose-button{background:#edf3f6;border:1px solid #d6e2e7;color:#21425a;border-radius:10px;padding:13px 6px;min-height:57px;font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;gap:8px}
+.pose-button span{font-size:12px}
+.pose-button:hover{background:#d9eff0;border-color:#40acaa}
+.pose-button.is-active{background:#114a75;color:white;border-color:#136792;box-shadow:0 4px 10px #0e44621d}
+.ward-experience .call-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:12px}
+.ward-experience .call-actions .btn{padding:15px 8px;min-height:59px;white-space:normal;font-size:12px}
+.ward-experience .call-actions #next{background:#144b75;border-color:#266e9d}
+.ward-experience .call-actions #talk{background:#0eb4a2;border-color:#0eb4a2}
+.ward-experience .ward-sidebar{border-radius:16px;background:#f7fafc;color:#1c344b;border:1px solid #cfdee5;overflow:hidden}
+.ward-sidebar .patient-info{padding:20px}
+.ward-sidebar .patient-info h3{color:#173e5b}
+.ward-sidebar .patient-info .muted,.ward-sidebar .patient-side-panel .muted{color:#60788c}
+.ward-sidebar .patient-info .status-pill{color:#146f64;margin:10px 0}
+.ward-sidebar .patient-side-panel{border-top:1px solid #d5e0e7;padding:17px}
+.ward-sidebar .patient-side-panel .footnote{color:#71869a}
+.ward-sidebar #observers p{background:#edf4f9;padding:11px 12px;border-radius:10px;margin:10px 0;color:#234b66;line-height:1.5}
+.ward-sidebar #observers p strong{color:#113c5b}
+.ward-side-actions{display:flex;gap:6px}
+.ward-side-actions .btn{font-size:11px;padding:11px 7px;min-height:46px}
+.ward-sidebar .transcript{margin:0;border:0;border-top:1px solid #d5e0e7;border-radius:0;background:#fff}
+.ward-sidebar .transcript>div:first-child{color:#16425e;border-color:#e3ecf0}
+.ward-sidebar .transcript .muted{color:#74889b}
+.ward-sidebar .transcript-scroll{height:270px;color:#203b50}
+.ward-sidebar .line{color:#27465c}
+.ward-sidebar .line strong{color:#009a92}
+.ward-sidebar .line.patient strong{color:#536e9f}
+.ward-experience .compose input{background:#f8fbfc;color:#15354a;border:1px solid #b4ccd6}
+.ward-experience .floating-status{margin-top:12px;color:#b9d9e5}
+@media(min-width:1350px){main:has(.ward-experience){max-width:1550px;padding-left:20px;padding-right:20px}.ward-experience .call-layout{grid-template-columns:minmax(0,1fr) 365px}}
+@media(max-width:950px){.ward-experience .call-layout{display:flex;flex-direction:column}.ward-experience .call-layout>section,.ward-experience .ward-sidebar{width:100%}.ward-sidebar .transcript-scroll{height:180px}}
+@media(max-width:620px){.ward-experience .ward-video{aspect-ratio:4/3;min-height:230px}.ward-position-panel{display:block;padding:10px}.position-label{width:auto;margin-bottom:8px}.position-label small{display:none}.position-buttons{gap:5px}.pose-button{flex-direction:column;gap:2px;min-height:62px;font-size:17px;padding:6px 2px}.pose-button span{font-size:10px}.ward-experience .call-actions{grid-template-columns:repeat(2,minmax(0,1fr));position:static;margin:10px 0 0;background:transparent;border:0;padding:0;box-shadow:none}.ward-experience .ward-sidebar{margin-top:5px}.ward-experience .ward-sidebar .transcript-scroll{height:175px}}
+@media(prefers-reduced-motion:reduce){.ward-art *, .ward-art{animation:none!important;transition:none!important}}
