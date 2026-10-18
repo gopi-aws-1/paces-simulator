@@ -48,7 +48,7 @@ export class VoiceRoom {
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R||!('speechSynthesis' in window))throw Error('Hands-free browser speech is unavailable here. Try Chrome or Edge, or type your questions.');
   this.mode='browser';this.caseRecord=caseRecord;this.reply=answer;this.active=true;
-  this.status('Scripted browser voice is ready. This mode does not use an AI patient.');
+  this.status('Browser microphone ready. Patient responses may use Gemini if configured.');
   this.say(caseRecord.opening,()=>this.listen());
  }
  say(text,done){
@@ -66,7 +66,7 @@ export class VoiceRoom {
    if(!this.active)return;
    const text=e.results?.[0]?.[0]?.transcript?.trim();if(!text)return;
    this.busy=true;this.onCandidate(text);this.status('Patient considering your question…');
-   const result=this.reply(text);
+   let result;try{result=await this.reply(text);}catch{result='Sorry, could you repeat that, doctor?';}
    if(!this.active)return;
    this.onPatient(result);
    this.say(result,()=>{this.busy=false;this.listen();});
