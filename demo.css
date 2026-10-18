@@ -159,3 +159,39 @@ input,select,textarea{font-size:16px}
 .ward-loading{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(140deg,#b4cbd2,#e5edf0);color:#244354;font-weight:700;font-size:16px}
 
 .gemini-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.gemini-result{overflow-wrap:anywhere;color:#adf5d8;font-size:12px;line-height:1.6;margin:11px 0 0}
+
+
+/* Consultation refresh: richer clinical atmosphere and independently animated telemetry */
+body:has(.ward-experience){background:linear-gradient(145deg,#e4edf4,#bcd1df);color:#183754}
+main:has(.ward-experience){max-width:1680px;padding:18px 18px 65px}
+.ward-experience{filter:drop-shadow(0 16px 34px #102d4930)}
+.ward-experience .ward-video{position:relative;overflow:hidden;border:2px solid #e4edf3;border-radius:18px;background:#c4d3d9;box-shadow:0 14px 30px #0e284b24;isolation:isolate}
+.ward-experience .ward-scene{filter:saturate(.92) contrast(1.05);background:linear-gradient(100deg,#e3e9ed,#bacbd8)}
+.ward-experience .ward-art{height:100%;width:100%;object-fit:cover}
+.ward-experience .ward-video::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#061b2c20,transparent 25%,transparent 72%,#0a253d30);z-index:1}
+.monitor-container{position:absolute;top:14%;left:2%;width:clamp(135px,21%,260px);z-index:2;pointer-events:none}
+.clinical-monitor{background:#07151d;border:7px solid #a5b5bf;border-radius:13px;box-shadow:0 8px 24px #061b2990,inset 0 0 0 2px #425865;padding:9px;color:#f6ffff;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.monitor-topline{font-size:clamp(7px,.72vw,11px);font-weight:700;letter-spacing:.04em;color:#e6f6fa;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.monitor-dot{width:6px;height:6px;flex:none;border-radius:50%;background:#31e3a0;box-shadow:0 0 8px #31e3a0}
+.monitor-sim{margin-left:auto;color:#96b9c8;font-size:.8em}
+.monitor-line{height:clamp(52px,6.2vw,85px);position:relative;border-bottom:1px solid #39515a;padding-top:8px}
+.monitor-label{color:#a8c5cb;font-size:clamp(8px,.8vw,12px);font-weight:800}
+.monitor-line svg{position:absolute;left:0;top:27%;width:76%;height:70%;overflow:hidden}
+.monitor-trace{fill:none;stroke-width:2.3;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:540;animation:monitor-sweep 3s linear infinite}
+.ecg .monitor-trace{stroke:#32f18e;filter:drop-shadow(0 0 2px #21ec80)}
+.oxygen .monitor-trace{stroke:#30caff;filter:drop-shadow(0 0 2px #26bfff);animation-duration:3.7s}
+.monitor-line>strong{position:absolute;right:2px;top:40%;font-size:clamp(17px,2.5vw,39px);font-weight:800;font-variant-numeric:tabular-nums}
+.ecg>strong{color:#3afa9b}.oxygen>strong{color:#41cffa}
+.monitor-line small,.monitor-footer small{font-size:.45em}
+.monitor-footer{display:flex;justify-content:space-between;gap:7px;padding:9px 0 2px}
+.monitor-footer>div{display:flex;flex-direction:column;gap:5px}
+.monitor-footer span{color:#e5bd4d;font-size:clamp(7px,.72vw,11px)}
+.monitor-footer strong{color:#ffe27e;font-size:clamp(12px,1.3vw,20px);font-variant-numeric:tabular-nums}
+.monitor-disclaimer{font-size:clamp(6px,.54vw,9px);line-height:1.3;color:#b3c6cf;margin-top:7px}
+.ward-experience .ward-sidebar{box-shadow:0 12px 30px #18395119}
+.ward-experience .pose-button{transition:transform .16s ease,box-shadow .16s ease,background .16s ease}
+.ward-experience .pose-button:hover{transform:translateY(-2px);box-shadow:0 5px 13px #17446823}
+.ward-experience .call-actions .btn{transition:transform .16s,filter .16s}.ward-experience .call-actions .btn:hover{transform:translateY(-2px);filter:brightness(1.07)}
+@keyframes monitor-sweep{0%{stroke-dashoffset:540}100%{stroke-dashoffset:0}}
+@media(max-width:620px){.monitor-container{left:8px;top:19%;width:135px}.clinical-monitor{padding:5px;border-width:4px}.monitor-line{height:48px}.monitor-footer{padding-top:3px}.monitor-disclaimer{font-size:6px}}
+@media(prefers-reduced-motion:reduce){.monitor-trace{animation:none!important}.ward-experience .pose-button,.ward-experience .call-actions .btn{transition:none!important}}
