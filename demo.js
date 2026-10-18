@@ -235,7 +235,7 @@ function encounter(){
  <div class="transcript"><div>Consultation transcript <span class="muted">· saved for review</span></div><div class="transcript-scroll" id="transcript"></div></div></aside></div></div>
  <dialog id="examModal"><h3>Examine the patient</h3><p class="muted">Choose a manoeuvre to reveal the simulated clinical finding. Clicks cannot assess physical examination technique.</p><div id="signs" class="finding-list"></div><div class="modal-actions"><button class="btn btn-main" id="closeSigns">Return to patient</button></div></dialog>
  <dialog id="instructionsModal"><h3>Candidate instructions</h3><p>${esc(p.instruction)}</p><div class="modal-actions"><button class="btn btn-main" id="closeInstructions">Back to patient</button></div></dialog>`;
- $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();speaker.stop();if(videoCall)disconnectVideo();announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
+ $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();speaker.stop();if(videoCall)disconnectVideo();const input=$('#typed'),send=$('#typeForm button[type="submit"]');if(input)input.disabled=false;if(send)send.disabled=false;announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
  $('#examine').onclick=()=>{drawSigns();$('#examModal').showModal();};
  $('#closeSigns').onclick=()=>$('#examModal').close();
  $('#details').onclick=()=>$('#instructionsModal').showModal();$('#closeInstructions').onclick=()=>$('#instructionsModal').close();
