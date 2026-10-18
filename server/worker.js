@@ -119,6 +119,57 @@ async function endVideo(env,conversationId){
 
 const PATIENT_VOICES=['coral','cedar','shimmer','onyx','sage','ash','echo','nova','cedar','verse'];
 function patientVoice(c){return PATIENT_VOICES[c.id]||((c.sex==='Man')?'cedar':'coral');}
+
+// Google Gemini TTS returns headerless PCM for the 3.1 preview model.
+// Wrap the 24 kHz / 16-bit / mono audio in a standard WAV container so
+// browsers can play it through a normal <audio> element.
+function pcmToWav(bytes,rate=24000){
+ const header=new ArrayBuffer(44),view=new DataView(header);
+ const put=(offset,value)=>{for(let i=0;i<value.length;i++)view.setUint8(offset+i,value.charCodeAt(i));};
+ put(0,'RIFF');view.setUint32(4,36+bytes.length,true);put(8,'WAVE');put(12,'fmt ');
+ view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+ view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);
+ view.setUint16(32,2,true);view.setUint16(34,16,true);put(36,'data');
+ view.setUint32(40,bytes.length,true);
+ const output=new Uint8Array(44+bytes.length);output.set(new Uint8Array(header));output.set(bytes,44);
+ return output;
+}
+function decodeBase64Audio(value){
+ if(typeof value!=='string'||!value.length||value.length>16_000_000)throw Error('Gemini speech returned invalid audio data.');
+ const binary=atob(value),bytes=new Uint8Array(binary.length);
+ for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+ return bytes;
+}
+const geminiVoices=['Kore','Charon','Aoede','Fenrir','Leda','Puck','Zephyr','Orus','Sulafat','Gacrux'];
+function voiceForPatient(c){
+ const female=['Kore','Aoede','Leda','Zephyr','Sulafat'];
+ const male=['Charon','Fenrir','Puck','Orus','Gacrux'];
+ const voices=patientStyle(c).voice==='male'?male:female;
+ return voices[Math.abs(c.id)%voices.length];
+}
+async function renderGeminiSpeech(env,c,text){
+ const model=env.GEMINI_TTS_MODEL||'gemini-3.1-flash-tts-preview';
+ // 3.1 uses prebuiltVoiceConfig and PCM output. Deliberately use that
+ // free-tier documented model rather than assuming 3.8 free eligibility.
+ const body={
+  contents:[{parts:[{text:'Say the following exactly as a UK hospital patient, in natural British English. Speak conversationally with realistic pauses, gentle warmth and restrained emotion. Do not add any words. Patient dialogue: '+text}]}],
+  generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voiceForPatient(c)}}}}
+ };
+ let response;
+ try{
+  response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{
+   method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},body:JSON.stringify(body)
+  });
+ }catch{throw Error('Gemini speech network unavailable.');}
+ if(!response.ok){const error=new Error('Gemini speech provider returned HTTP '+response.status+'.');error.providerStatus=response.status;throw error;}
+ const output=await response.json();
+ const part=output.candidates?.[0]?.content?.parts?.find(p=>p.inlineData?.data);
+ if(!part)throw Error('Gemini returned no audio for this patient.');
+ const bytes=decodeBase64Audio(part.inlineData.data),mime=String(part.inlineData.mimeType||'');
+ // Some TTS versions return an entire WAV file rather than raw PCM.
+ const wav=bytes.length>=12&&String.fromCharCode(...bytes.slice(0,4))==='RIFF'?bytes:pcmToWav(bytes);
+ return new Response(wav,{status:200,headers:{'Content-Type':'audio/wav','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+}
 async function renderPatientSpeech(env,c,text){
  const style=patientStyle(c);
  const instructions=[
@@ -176,13 +227,20 @@ export default {
     const result=await geminiPatient(env,c,question,Array.isArray(input.history)?input.history:[]);
     return json(result,200,headers);
    }
-   if(!env.OPENAI_API_KEY)return json({error:'Live AI voice has not been configured by the site owner.'},503,headers);
    if(path==='/speech'){
     const speech=String(input.text||'').trim();
     if(!speech||speech.length>900||/[<>]/.test(speech))return json({error:'Invalid speech text'},400,headers);
+    if(env.GEMINI_API_KEY){
+     try{
+      const result=await renderGeminiSpeech(env,c,speech);
+      return new Response(result.body,{status:200,headers:{...headers,'Content-Type':'audio/wav','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+     }catch(error){return json({error:error.message||'Gemini speech unavailable',providerStatus:error.providerStatus||null},502,headers);}
+    }
+    if(!env.OPENAI_API_KEY)return json({error:'AI speech has not been configured.'},503,headers);
     const resp=await renderPatientSpeech(env,c,speech);
     return new Response(resp.body,{status:200,headers:{...headers,'Content-Type':'audio/mpeg','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
+   if(!env.OPENAI_API_KEY)return json({error:'Live AI voice has not been configured by the site owner.'},503,headers);
    if(path==='/token'){
     const result=await requestOpenAI(env,'realtime/client_secrets',{expires_after:{anchor:'created_at',seconds:60},
      session:{type:'realtime',model:env.REALTIME_MODEL||'gpt-realtime-2.1',instructions:patientPrompt(c),
