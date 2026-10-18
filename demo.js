@@ -11,6 +11,8 @@ import {monitorMarkup,animateMonitor} from './vitals-monitor.js';
 import {photographicStage,setupPhotographicStage} from './photographic-scene.js';
 import {requestPatientReply} from './response-timing.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
+import {gradeEncounter} from './grading.js';
+import {caseFeedbackHtml,aggregateFeedbackHtml} from './feedback-ui.js';
 
 
 const safe = value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -121,7 +123,7 @@ function stop(){
  cameraStream?.getTracks().forEach(t=>t.stop());cameraStream=null;cameraCanvas=null;cameraVideo=null;
 }
 function begin(mode,id=null){
- patientPosition='lying';stop();session={mode,ids:mode==='exam'?patients.map(c=>c.id):[Number(id)],index:0,stage:mode==='exam'?'intro':'patient',records:{},caseStart:Date.now()};
+ patientPosition='lying';stop();const feedbackTiming=document.querySelector('input[name="feedbackTiming"]:checked')?.value==='each'?'each':'end';session={mode,feedbackTiming,ids:mode==='exam'?patients.map(c=>c.id):[Number(id)],index:0,stage:mode==='exam'?'intro':'patient',records:{},caseStart:Date.now()};
  render();
 }
 function c(){return session&&patients[session.ids[session.index]];}
@@ -138,7 +140,7 @@ function home(){
  <button class="mode primary" id="full"><span class="mini-icon">✦</span><span class="mode-title">Start Full Exam</span><span class="mode-desc">Meet both consultants, hear the guidelines, then practise with 10 patients in one circuit.</span><span class="mode-arrow">↗</span></button>
  <button class="mode" id="one"><span class="mini-icon">◎</span><span class="mode-title">Practise One Case</span><span class="mode-desc">Choose a patient and start speaking straight away. One encounter at a time.</span><span class="mode-arrow">↗</span></button></div>
  <p class="choice-note">Full extended practice · 10 fictional patients · 10 minutes each · two simulated consultant perspectives</p>
- <div class="case-picker hide" id="picker"><label for="choice">Select a patient</label><select id="choice">${patients.map((p,i)=>`<option value="${i}">Case ${i+1}: ${esc(p.title)} · ${esc(p.kind)}</option>`).join('')}</select><button class="btn btn-main btn-large" style="margin-top:15px;width:100%" id="launch">Start This Case →</button></div>
+ <fieldset class="feedback-preference"><legend>When would you like feedback from the consultants?</legend><label><input type="radio" name="feedbackTiming" value="end" checked><span><strong>At the end of the circuit</strong><small>Recommended for uninterrupted exam-style practice</small></span></label><label><input type="radio" name="feedbackTiming" value="each"><span><strong>After every patient</strong><small>Receive detailed grading before continuing</small></span></label></fieldset><div class="case-picker hide" id="picker"><label for="choice">Select a patient</label><select id="choice">${patients.map((p,i)=>`<option value="${i}">Case ${i+1}: ${esc(p.title)} · ${esc(p.kind)}</option>`).join('')}</select><button class="btn btn-main btn-large" style="margin-top:15px;width:100%" id="launch">Start This Case →</button></div>
  <details class="settings"><summary>Optional Gemini patient conversation setup</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The no-login demo works with expressive animated patient illustrations and gender-matched device voices. Mobile speech recognition varies by browser; typing always works. A protected speech service provides more natural AI voices when configured. For natural Gemini dialogue, deploy the secure Cloudflare Worker and set GEMINI_API_KEY as a secret. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><div class="gemini-actions"><button class="btn" id="saveEndpoint">Save URL</button><button class="btn" id="testGemini" type="button">Test Gemini connection</button></div><p id="geminiResult" class="gemini-result" role="status" aria-live="polite"></p></details>
  <p class="footnote">Independent educational simulation. The official PACES has eight encounters at five stations, assessed by two examiners per station. The ten-patient mode is additional training, not the official format. No real patient data.</p></div>`;
  $('#full').onclick=()=>begin('exam');$('#one').onclick=()=>{$('#picker').classList.toggle('hide');$('#picker').scrollIntoView({behavior:'smooth',block:'nearest'});};
@@ -236,7 +238,7 @@ function encounter(){
   <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div>
  </div>
  <div class="ward-position-panel"><div class="position-label"><strong>Patient position</strong><small>Ask the patient to move, or select a position</small></div><div class="position-buttons"><button class="pose-button" data-pose="lying" aria-pressed="${patientPosition==='lying'}">▰ <span>Lie Down</span></button><button class="pose-button" data-pose="sitting" aria-pressed="${patientPosition==='sitting'}">♙ <span>Sit Up</span></button><button class="pose-button" data-pose="standing" aria-pressed="${patientPosition==='standing'}">♟ <span>Stand by Bed</span></button></div></div>
- <div class="call-actions"><button class="btn btn-main btn-large" id="talk">🎙 Start Talking</button><button class="btn" id="mute">Mute / Stop</button><button class="btn" id="examine">🩺 Examine</button><button class="btn" id="next">${session.index===session.ids.length-1?'Finish & Review →':'Next Patient →'}</button></div>
+ <div class="call-actions"><button class="btn btn-main btn-large" id="talk">🎙 Start Talking</button><button class="btn" id="mute">Mute / Stop</button><button class="btn" id="examine">🩺 Examine</button><button class="btn" id="next">${session.feedbackTiming==='each'?'End Case & Review →':session.index===session.ids.length-1?'Finish & Review →':'Next Patient →'}</button></div>
  <p class="floating-status" id="liveStatus" role="status">Your patient is ready. Use the microphone or type a question.</p>
  <form id="typeForm" class="compose"><input id="typed" aria-label="Type a patient question" placeholder="Type a question or ask the patient to sit or stand…"><button class="btn btn-main" type="submit">Ask →</button></form>
  </section>
@@ -387,37 +389,96 @@ function tick(){
  const t=$('#countdown');if(t){t.textContent=String(Math.max(0,Math.floor(left/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(left)%60)).padStart(2,'0');t.classList.toggle('warn',left<60);}
  if(left<=0)nextCase();
 }
+function ensurePracticeReport(id){
+ if(!session)return null;
+ const rec=session.records[id]||{messages:[],signs:[]};
+ if(!rec.report)rec.report=gradeEncounter(patients[id],rec);
+ return rec.report;
+}
 async function assess(id){
- if(!api||!session)return;
- const v=session.records[id];if(!v||!v.messages.some(m=>m.who==='you')||v.assessment||v.assessmentPending||v.assessmentError)return;
+ const activeSession=session;
+ if(!activeSession)return;
+ const v=activeSession.records[id];
+ if(!v)return;
+ ensurePracticeReport(id);
+ if(!api||!v.messages.some(m=>m.who==='you')||v.assessment||v.assessmentPending||v.assessmentError)return;
  v.assessmentPending=true;
+ const abort=new AbortController();
+ const timeout=setTimeout(()=>abort.abort(),14000);
  try{
-  const response=await fetch(api.replace(/\/+$/,'')+'/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(assessmentPayload(patients[id],v))});
-  const data=await response.json();if(!response.ok||!Array.isArray(data.assessors))throw Error(data.error||'Unavailable');
-  v.assessment=data.assessors;
- }catch(e){v.assessmentError=String(e.message||e);}
- finally{v.assessmentPending=false;if(session?.stage==='review')review();}
+  const response=await fetch(api.replace(/\/+$/,'')+'/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},signal:abort.signal,body:JSON.stringify(assessmentPayload(patients[id],v))});
+  const data=await response.json();
+  if(!response.ok||!Array.isArray(data.assessors))throw Error(data.error||'AI assessment unavailable');
+  v.assessment=data.assessors.filter(x=>x&&typeof x.name==='string'&&typeof x.feedback==='string').slice(0,2);
+ }catch(error){
+  v.assessmentError=String(error?.message||'AI review unavailable').slice(0,180);
+ }finally{
+  clearTimeout(timeout);v.assessmentPending=false;
+  if(session===activeSession){
+   const container=document.getElementById('debrief-'+id);
+   if(container)container.innerHTML=caseFeedbackHtml(patients[id],v);
+  }
+ }
+}
+function continueAfterDebrief(){
+ if(!session||session.stage!=='caseFeedback')return;
+ if(session.index<session.ids.length-1){
+  session.index++;patientPosition='lying';session.caseStart=Date.now();session.stage='patient';
+ }else session.stage='review';
+ render();
 }
 function nextCase(){
  if(session?.stage!=='patient')return;
- const id=c().id;assess(id);stop();
- if(session.index<session.ids.length-1){session.index++;patientPosition='lying';session.caseStart=Date.now();render();}else finish();
+ const id=c().id;
+ assess(id);stop();
+ if(session.feedbackTiming==='each'){
+  session.stage='caseFeedback';render();return;
+ }
+ if(session.index<session.ids.length-1){
+  session.index++;patientPosition='lying';session.caseStart=Date.now();render();
+ }else{session.stage='review';render();}
 }
 function finish(){
  if(!session)return;
  if(session.stage==='patient')assess(c().id);
  stop();session.stage='review';render();
 }
-function review(){
- const rows=session.ids.map(id=>({p:patients[id],rec:session.records[id]||{messages:[],signs:[]}}));
- $('#app').innerHTML=`<div class="review-area"><div class="eyebrow">SESSION FINISHED</div><h1>Practice complete.<br><em style="font-style:normal;color:#3de5bd">Reflect and improve.</em></h1><p class="muted">Your encounters are summarised below. Two simulated consultants provide evidence-based observations; when AI assessment is configured, additional comments appear here.</p>
- <div class="intro-actions" style="justify-content:flex-start"><button class="btn btn-main" id="again">Start Again</button><button class="btn" id="export">Download Session</button></div>
- <div class="case-results">${rows.map(({p,rec},i)=>`<details class="case-result" ${rows.length===1?'open':''}><summary>${i+1}. ${esc(p.name)} · ${esc(p.title)}<span>${rec.messages.filter(m=>m.who==='you').length} questions asked · ${rec.signs.length} exam actions</span></summary><p><strong>Working diagnosis / focus:</strong> ${esc(p.diagnosis)}</p>
- <div class="feedback-grid">${(rec.assessment?.length?rec.assessment.map(a=>({name:a.name,body:a.feedback})):observerSummaries(p,rec).map(a=>({name:a.name,body:a.summary+'. '+a.detail}))).map(a=>`<div class="feedback-card"><strong>${esc(a.name)}</strong>${esc(a.body)}</div>`).join('')}</div>
- ${rec.assessmentPending?'<p>AI consultant assessment loading…</p>':''}${rec.assessmentError?`<p>AI assessment unavailable: ${esc(rec.assessmentError)}</p>`:''}<h3 style="margin-top:22px">Conversation</h3>${rec.messages.map(m=>`<p><strong>${m.who==='you'?'Candidate':esc(p.name)}:</strong> ${esc(m.text)}</p>`).join('')}</details>`).join('')}</div><p class="footnote">Original fictional cases. The illustrated avatar's eyes and lips animate during simulated speech; it is not a recording of a person. Full interactive video requires a separate Tavus service and credentials. No result is an official PACES grade.</p></div>`;
- $('#again').onclick=()=>{stop();session=null;render();};
- $('#export').onclick=()=>{const blob=new Blob([JSON.stringify(session,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='paces-practice.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);};
+function caseDebrief(){
+ const id=c().id,rec=r();
+ ensurePracticeReport(id);
+ const more=session.index<session.ids.length-1;
+ $('#app').innerHTML='<div class="review-area"><div id="debrief-'+id+'">'+caseFeedbackHtml(c(),rec)+'</div>'+
+  '<div class="debrief-actions"><button class="btn btn-main btn-large" id="continueCase">'+(more?'Continue to next patient →':'See final report →')+'</button>'+
+  (more?'<button class="btn" id="endEarly">Finish session and review all cases</button>':'')+'</div></div>';
+ $('#continueCase').onclick=continueAfterDebrief;
+ if(more)$('#endEarly').onclick=()=>{session.stage='review';render();};
 }
-function render(){if(!session)home();else if(session.stage==='intro')intro();else if(session.stage==='patient')encounter();else review();}
+function review(){
+ const ids=session.ids.filter(id=>session.records[id]);
+ ids.forEach(ensurePracticeReport);
+ const cases=ids.map(id=>{
+  const rec=session.records[id];
+  return '<details class="case-result" '+(ids.length===1?'open':'')+'><summary>Patient '+(session.ids.indexOf(id)+1)+': '+esc(patients[id].name)+' — '+esc(patients[id].title)+
+   '<span>'+rec.messages.filter(m=>m.who==='you').length+' candidate turn(s) · '+rec.signs.length+' simulated exam action(s)</span></summary>'+
+   '<div id="debrief-'+id+'">'+caseFeedbackHtml(patients[id],rec)+'</div></details>';
+ }).join('');
+ $('#app').innerHTML='<div class="review-area"><div class="eyebrow">SESSION COMPLETED</div><h1>Consultant feedback</h1>'+
+  '<p class="muted">Detailed educational assessment of your recorded clinical practice. Not an official PACES grade or pass prediction.</p>'+
+  aggregateFeedbackHtml(session.records,ids.map(id=>patients[id]))+
+  '<div class="debrief-actions"><button class="btn btn-main" id="again">Start a new session</button><button class="btn" id="export">Download detailed feedback</button></div>'+
+  '<h2 class="individual-reviews">Individual patient assessments</h2><div class="case-results">'+cases+'</div></div>';
+ $('#again').onclick=()=>{stop();session=null;render();};
+ $('#export').onclick=()=>{
+  const content={createdAt:new Date().toISOString(),mode:session.mode,feedbackTiming:session.feedbackTiming,
+   disclaimer:'Educational practice feedback only. Not official MRCP(UK) results.',
+   cases:ids.map(id=>({patient:patients[id].name,caseId:id,report:session.records[id].report,
+    aiConsultants:session.records[id].assessment||null,aiUnavailable:!!session.records[id].assessmentError,
+    transcript:session.records[id].messages,selectedExaminationActions:session.records[id].signs}))};
+  const blob=new Blob([JSON.stringify(content,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='paces-ward-feedback.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ };
+}
+
+function render(){if(!session)home();else if(session.stage==='intro')intro();else if(session.stage==='patient')encounter();else if(session.stage==='caseFeedback')caseDebrief();else review();}
 render();timer=setInterval(tick,500);
 window.addEventListener('pagehide',stop);
