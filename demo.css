@@ -222,3 +222,25 @@ main:has(.ward-experience){max-width:1680px;padding:18px 18px 65px}
 @keyframes ward-camera{0%{transform:scale(1.01) translate(0,0)}100%{transform:scale(1.07) translate(-.5%,-.8%)}}
 @media(max-width:620px){.ward-video .patient-presence{top:8px;right:8px;padding:6px 8px;font-size:9px}.ward-video .photo-disclaimer{max-width:64%;font-size:7px}.ward-video .ward-photograph{object-position:55% center}}
 @media(prefers-reduced-motion:reduce){.ward-video .ward-photograph,.ward-video .presence-bars i{animation:none!important}}
+
+
+/* Patient-only consultation: keep the live bedside vitals untouched. */
+.ward-video .photo-stage{background:linear-gradient(120deg,#9cb3bf,#dce7ea)}
+.ward-video .ward-photograph{object-position:52% 42%;transform-origin:53% 42%;animation:solo-patient-breathing 12s ease-in-out infinite alternate;filter:saturate(.97) contrast(1.02)}
+.ward-video .photo-light{background:linear-gradient(90deg,#102b3b30,transparent 33%),linear-gradient(0deg,#081d34af,transparent 32%,transparent 78%,#081d343a)}
+.ward-video .consultation-focus{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 85px #12345040;border-radius:inherit}
+.ward-video .patient-presence{background:#06273bea;border:1px solid #91d9de6e;box-shadow:0 9px 22px #04233350;backdrop-filter:blur(10px)}
+.ward-video.patient-speaking .patient-presence{border-color:#4cebc7;box-shadow:0 8px 22px #062d38aa,0 0 0 3px #25dbc021}
+.ward-video.patient-speaking .ward-photograph{animation:solo-patient-breathing 8s ease-in-out infinite alternate;filter:saturate(1) contrast(1.035)}
+.ward-video .photo-disclaimer{background:#051c2cbf;backdrop-filter:blur(8px);color:#edf7f9}
+@keyframes solo-patient-breathing{
+ from{transform:scale(1.025) translateY(0)}
+ to{transform:scale(1.047) translateY(-.35%)}
+}
+@media(max-width:620px){
+ .ward-video .ward-photograph{object-position:54% 43%}
+ .ward-video .patient-presence{right:7px;top:7px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ward-video .ward-photograph{animation:none!important;transform:none!important}
+}
