@@ -204,7 +204,7 @@ function firstPatient(){patientPosition='lying';stop();session.stage='patient';s
 function header(p){return `<div class="sessionbar"><div><div class="eyebrow">${session.mode==='exam'?'EXTENDED TRAINING CIRCUIT':'SINGLE CASE PRACTICE'}</div><h2>${session.mode==='exam'?'Patient '+(session.index+1)+' of '+session.ids.length:'Your patient'} · ${esc(p.kind)}</h2><div class="sessionmeta">${esc(p.location)} · Two simulated consultants observing</div></div><div class="timer" id="countdown">10:00</div></div><div class="progress">${session.ids.map((_,i)=>`<span class="${i<session.index?'done':i===session.index?'current':''}"></span>`).join('')}</div>`;}
 function updatePatientPresence(speaking){
  const frame=$('#videoFrame');frame?.classList.toggle('patient-speaking',!!speaking);
- const text=$('#presenceText');if(text)text.textContent=speaking?'Patient speaking…':'Patient ready to speak';
+ const text=$('#presenceText');if(text)text.textContent=speaking?'Patient speaking…':'Patient listening';
 }
 function setPatientPosition(position,{spoken=false}={}){
  if(!['lying','sitting','standing'].includes(position))return;
@@ -277,6 +277,7 @@ async function askTyped(){
   return;
  }
  announce('Patient is considering your question…');
+ const presence=$('#presenceText');if(presence)presence.textContent='Patient thinking…';
  let answer;
  try{answer=await typedReply(q);}
  catch{answer='Sorry doctor, could you repeat that?';}
@@ -285,7 +286,7 @@ async function askTyped(){
  const finish=()=>{
   if(session?.stage==='patient'&&c().id===caseId){input.disabled=false;if(submit)submit.disabled=false;}
  };
- const started=()=>{if(session?.stage==='patient'&&c().id===caseId)log('patient',answer);};
+ const started=()=>{if(session?.stage==='patient'&&c().id===caseId){updatePatientPresence(true);log('patient',answer);}};
  if(voice?.active&&voice.mode==='browser'){
   voice.busy=true;
   try{voice.recognition?.abort();}catch{}
