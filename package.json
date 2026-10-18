@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check app.js && node --check cases.js && node --check extra-cases.js && node --check engine.js && node --check voice.js && node --check examiner.js && node --check server/worker.js && node --check demo.js && node --check conversation.js && node --check avatar.js && node --check speaker.js && node --check patient-style.js"
+    "check": "node --check app.js && node --check cases.js && node --check extra-cases.js && node --check engine.js && node --check voice.js && node --check examiner.js && node --check server/worker.js && node --check demo.js && node --check conversation.js && node --check avatar.js && node --check speaker.js && node --check patient-style.js && node --check vitals-monitor.js && node --check photographic-scene.js"
   }
 }
