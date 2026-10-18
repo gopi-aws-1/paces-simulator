@@ -154,19 +154,34 @@ function scripted(c,q,history){
  return best;
 }
 function backup(c,q,h){
- const patientMessages=h.filter(x=>x.who==='patient');
- const i=patientMessages.length;
- const last=patientMessages.at(-1)?.text||'';
- if(/^(what do you mean|could you explain|tell me more|go on|why is that)/.test(CLEAN(q))&&last)
-  return i%2?'It is difficult to explain. I can tell you more about what I have noticed if that would help.':'I can describe how it has felt, though I do not know what is causing it.';
- const fact=c.dialogue.find(d=>/Symptoms|Onset|Duration|Pain|Pattern|Character|Reasons/.test(d.topic))?.answer||c.opening;
- return [
-  'That is not something I can answer confidently, doctor. '+fact,
-  'I am not quite sure about that particular detail. The main thing I have noticed is: '+fact,
-  'Could you put that another way for me? I want to answer properly.',
-  'I have not really considered that before. What worries me most is: '+c.concern,
-  'I do not want to guess about that. '+fact
- ][(i+c.id)%5];
+ const s=CLEAN(q);
+ const last=h.filter(m=>m.who==='patient').at(-1)?.text||'';
+ if(/^(what do you mean|could you explain|tell me more|go on|why is that)/.test(s)&&last)
+  return 'Well, '+(c.id===0?'I was told there was a shadow on my scan, but I still do not understand what it means.':'I can try to explain how it has been affecting me. What would you like to know?');
+ if(/\?$/.test(String(q).trim())||/^(do|does|did|have|has|are|is|were|was|can|could|would|will|what|when|where|why|how|which)/.test(s))
+  return 'I’m not sure, doctor. Could you explain what you mean?';
+ return 'I see, doctor. Could you tell me a little more?';
+}
+/** React to the doctor's actual manner before searching for symptom keywords.
+ * No scripted patient claims a normal test result or rules out serious illness. */
+function interpersonalReply(c,s){
+ const uncertainCase=c.id===0;
+ const prematureReassurance=/(nothing (is |s |to be )?wrong|you (are |re |look |seem )?(fine|alright|all right|okay|ok)|not (a |anything to )?worr|no need to worry|everything (is |s )?(fine|normal|okay)|definitely (not|fine)|not (cancer|serious)|all clear)/.test(s);
+ if(prematureReassurance){
+  if(uncertainCase)return result('But they asked me to come in about my scan. If everything is fine, why am I here? I’m worried.','Concerns');
+  return result('I hope so, doctor, but I’m still worried about what’s been happening.','Concerns');
+ }
+ if(/\b(dont know|do not know|not sure|uncertain|cant say for certain|cannot say for certain|need more tests|further tests|waiting for results|not confirmed)\b/.test(s)){
+  if(uncertainCase)return result('I understand you can’t be certain yet. But could it be something serious?','Uncertainty');
+  return result('All right. What happens next, then?','Understanding');
+ }
+ if(/\b(sorry to hear|that sounds difficult|must be hard|i understand why|sorry about|sounds worrying|can imagine|understand this is worrying)\b/.test(s))
+  return result(uncertainCase?'Thank you. I’m quite frightened about what the scan might mean.':'Thank you, doctor. I’ve been worried about it.','Empathy');
+ if(/\b(take your time|no rush|we can go slowly|we have time)\b/.test(s))
+  return result('Thank you. I’m a bit nervous, to be honest.','Welfare');
+ if(/\b(is that clear|does that make sense|do you understand|any questions so far)\b/.test(s))
+  return result(uncertainCase?'I think so, but I still want to know what the scan might mean.':'I think so, doctor. Could you explain what happens next?','Understanding');
+ return null;
 }
 
 /* Follow-up details are drawn from the same fictional record so "tell me
@@ -194,6 +209,8 @@ const result=(text,topic)=>({text,topics:topic?[topic]:[]});
 export function naturalReply(c,input,history=[]){
  if(!c||!String(input||'').trim())return result('Sorry doctor, could you say that again?');
  const s=CLEAN(input),h=Array.isArray(history)?history:[],name=c.name.split(' ')[0];
+ const interpersonal=interpersonalReply(c,s);
+ if(interpersonal)return interpersonal;
 
  // Resolve common spoken phrasing before using the fuzzy keyword matcher.
  // These replies are all restatements of facts authored in the source cases.
