@@ -5,11 +5,13 @@ import {patientStyle,selectDeviceVoice} from './patient-style.js';
  * voices it has not installed. Optional secure AI-TTS delivers much more
  * expressive speech when the server is configured.
  */
+export const AI_SPEECH_START_DEADLINE_MS = 1400;
 export class PatientSpeaker {
  constructor({onSpeaking=()=>{},onStatus=()=>{}}={}){
   this.onSpeaking=onSpeaking;this.onStatus=onStatus;
   this.audio=null;this.utterance=null;this.controller=null;this.token=0;
   this.context=null;this.analyser=null;this.samples=null;this.level=0;this.active=false;
+  this.aiSpeechSlowUntil=0;
  }
  stop(){
   this.token++;this.controller?.abort();this.controller=null;
@@ -29,12 +31,15 @@ export class PatientSpeaker {
   let started=false;
   const start=()=>{if(own!==this.token||started)return;started=true;this.active=true;this.onSpeaking(true);onStart();};
   const finish=()=>{if(own!==this.token)return;if(!started)onStart();this.active=false;this.level=0;this.onSpeaking(false);done();};
-  if(preferAI&&endpoint){
+  if(preferAI&&endpoint&&Date.now()>=this.aiSpeechSlowUntil){
+   const controller=new AbortController();this.controller=controller;
+   // Limit initial AI speech delay. A local voice is faster than leaving the patient silent.
+   const wait=setTimeout(()=>controller.abort(),AI_SPEECH_START_DEADLINE_MS);
    try{
-    this.controller=new AbortController();
-    const res=await fetch(endpoint.replace(/\/+$/,'')+'/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:patient?.id,text:String(text).slice(0,900)}),signal:this.controller.signal});
+    const res=await fetch(endpoint.replace(/\/+$/,'')+'/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:patient?.id,text:String(text).slice(0,900)}),signal:controller.signal});
     if(!res.ok){const info=await res.json().catch(()=>({}));throw Error(info.error||'Speech service returned '+res.status);}
     const blob=await res.blob();
+    clearTimeout(wait);
     if(own!==this.token)return;
     const url=URL.createObjectURL(blob);const audio=new Audio(url);this.audio=audio;
     audio.preload='auto';
@@ -58,8 +63,9 @@ export class PatientSpeaker {
     start();this.onStatus('Gemini AI patient voice playing.');return;
    }catch(error){
     if(own!==this.token)return;
-    if(error?.name!=='AbortError')this.onStatus('Gemini speech unavailable ('+String(error?.message||'request failed').slice(0,110)+'). Using device voice.');
-   }
+    if(controller.signal.aborted){this.aiSpeechSlowUntil=Date.now()+60000;this.onStatus('Using the quick patient voice to avoid a long delay.');}
+    else this.onStatus('Using the device voice while the audio service is unavailable.');
+   }finally{clearTimeout(wait);if(this.controller===controller)this.controller=null;}
   }
   if(own===this.token)this.browserSpeech(text,patient,finish,own,start);
  }
