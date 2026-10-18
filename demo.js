@@ -209,6 +209,7 @@ function updatePatientPresence(speaking){
 function setPatientPosition(position,{spoken=false}={}){
  if(!['lying','sitting','standing'].includes(position))return;
  patientPosition=position;
+ $('#videoFrame')?.classList.toggle('pose-illustrated',position!=='lying');
  const art=$('#wardArt');
  if(art){art.classList.remove('pose-lying','pose-sitting','pose-standing');art.classList.add('pose-'+position);art.setAttribute('aria-label',c().name+' '+(position==='lying'?'lying in bed':position==='sitting'?'sitting on the bed':'standing beside the bed'));}
  document.querySelectorAll('[data-pose]').forEach(btn=>{const active=btn.dataset.pose===position;btn.classList.toggle('is-active',active);btn.setAttribute('aria-pressed',String(active));});
