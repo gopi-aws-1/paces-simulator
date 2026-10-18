@@ -1,3 +1,15 @@
+
+## Gemini free-tier patient conversations
+
+The site now supports a Cloudflare Worker `POST /chat` endpoint powered by Gemini. The Gemini key is **never stored in browser code or GitHub**. The existing scripted clinical dialogue remains the fallback if Gemini is unavailable.
+
+1. Deploy the existing Worker from the `server` folder using `npx wrangler deploy` (Cloudflare account required).
+2. In Cloudflare Workers & Pages, select the Worker, open **Settings → Variables and Secrets → Add**, choose **Secret**, set name `GEMINI_API_KEY`, paste the key directly into Cloudflare and deploy the secret. Alternatively run `npx wrangler secret put GEMINI_API_KEY` inside `server`.
+3. In the PACES Ward homepage open **Optional Gemini patient conversation setup**, enter your deployed Worker URL (not the key), and select **Save URL**.
+4. Start a case and type a question or use **Start Talking** in a supported speech-recognition browser. Patient replies will come from Gemini when available, using the specific case facts and recent dialogue; otherwise the authored fallback is used.
+
+Optional non-secret Worker variable `GEMINI_MODEL` defaults to `gemini-2.5-flash`; choose a model enabled for your Google AI Studio project and quota. Browser speech voices remain device-dependent, and this is not the Gemini Live audio API. GitHub Pages cannot store API secrets. Free-tier usage is limited and publicly exposed unauthenticated Worker endpoints can be abused; consider access controls and per-user limits before broad public release. Do not send real patient information.
+
 # PACES Ward — Interactive patient practice
 
 **Client demo:** https://gopi-aws-1.github.io/paces-simulator/

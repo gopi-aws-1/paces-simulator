@@ -19,6 +19,20 @@ function patientPrompt(c){
   'If examined, give consent when asked; do not claim objective findings that have not been given by the examiner or simulation.',
   'This is an adult professional educational role-play only. Do not interpret this as a real medical encounter.'].join('\n\n');
 }
+
+async function geminiPatient(env,c,question,history){
+ const contents=history.slice(-20).filter(m=>m&&['you','patient'].includes(m.who)&&typeof m.text==='string').map(m=>({role:m.who==='you'?'user':'model',parts:[{text:truncate(m.text,700)}]}));
+ contents.push({role:'user',parts:[{text:question}]});
+ const model=env.GEMINI_MODEL||'gemini-2.5-flash';
+ const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{
+  method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},
+  body:JSON.stringify({systemInstruction:{parts:[{text:patientPrompt(c)+'\n\nRespond to the exact question in one or two naturally spoken sentences. Keep the case facts consistent, use the previous conversation, and avoid repetitive stock phrases. Do not invent clinical facts. Do not provide exam hints.'}]},contents,generationConfig:{temperature:0.55,maxOutputTokens:220}})
+ });
+ if(!response.ok)throw Error('Gemini service returned '+response.status);
+ const data=await response.json();
+ return truncate((data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join(' ').trim(),900);
+}
+
 function cors(origin,allowed){
  return {'Access-Control-Allow-Origin':origin===allowed?allowed:'null','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Vary':'Origin'};
 }
@@ -89,7 +103,7 @@ export default {
   if(origin!==allowed)return json({error:'Origin not allowed'},403,headers);
   if(request.method!=='POST')return json({error:'Use POST'},405,headers);
   const path=new URL(request.url).pathname.replace(/\/+$/,'');
-  if(!['/token','/evaluate','/video/create','/video/end','/speech'].includes(path))return json({error:'Not found'},404,headers);
+  if(!['/token','/evaluate','/video/create','/video/end','/speech','/chat'].includes(path))return json({error:'Not found'},404,headers);
   const length=Number(request.headers.get('content-length')||'0');
   if(length>40000)return json({error:'Request too large'},413,headers);
   if(env.API_LIMITER){
@@ -108,6 +122,13 @@ export default {
    if(path==='/video/create'){
     const value=await createVideo(env,c);
     return value.notConfigured?json({code:'VIDEO_NOT_CONFIGURED',error:'Patient video avatar not configured.'},503,headers):json(value,200,headers);
+   }
+   if(path==='/chat'){
+    if(!env.GEMINI_API_KEY)return json({error:'Gemini has not been configured.'},503,headers);
+    const question=truncate(input.question,1200).trim();
+    if(!question)return json({error:'Question required'},400,headers);
+    const answer=await geminiPatient(env,c,question,Array.isArray(input.history)?input.history:[]);
+    return answer?json({answer},200,headers):json({error:'No response from Gemini'},502,headers);
    }
    if(!env.OPENAI_API_KEY)return json({error:'Live AI voice has not been configured by the site owner.'},503,headers);
    if(path==='/speech'){
