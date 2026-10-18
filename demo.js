@@ -5,11 +5,13 @@ import {naturalReply} from './conversation.js';
 import {VoiceRoom} from './voice.js';
 import {PatientSpeaker} from './speaker.js';
 import {drawPatient} from './avatar.js';
+import {wardScene} from './ward-scene.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
 const patients=[...base,...extraCases],$=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API_KEY='paces-ward-voice-api';
+let patientPosition='lying';
 let api='',session=null,recognition=null,voice=null,token=0,cameraCanvas=null,cameraStream=null,cameraFrame=0,cameraVideo=null,sheet=null,videoCall=null,patientTalking=false,timer=null;
 const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},onStatus:announce});
 try{api=localStorage.getItem(API_KEY)||'';}catch{}
@@ -31,7 +33,7 @@ function stop(){
  cameraStream?.getTracks().forEach(t=>t.stop());cameraStream=null;cameraCanvas=null;cameraVideo=null;
 }
 function begin(mode,id=null){
- stop();session={mode,ids:mode==='exam'?patients.map(c=>c.id):[Number(id)],index:0,stage:mode==='exam'?'intro':'patient',records:{},caseStart:Date.now()};
+ patientPosition='lying';stop();session={mode,ids:mode==='exam'?patients.map(c=>c.id):[Number(id)],index:0,stage:mode==='exam'?'intro':'patient',records:{},caseStart:Date.now()};
  render();
 }
 function c(){return session&&patients[session.ids[session.index]];}
@@ -101,20 +103,41 @@ function hearIntro(){
  rec.onerror=e=>announce('Microphone error: '+e.error+'. You can type instead.');
  try{rec.start();announce('Listening to your question…');}catch{announce('Could not open microphone. Please type.');}
 }
-function firstPatient(){stop();session.stage='patient';session.caseStart=Date.now();render();}
+function firstPatient(){patientPosition='lying';stop();session.stage='patient';session.caseStart=Date.now();render();}
 function header(p){return `<div class="sessionbar"><div><div class="eyebrow">${session.mode==='exam'?'EXTENDED TRAINING CIRCUIT':'SINGLE CASE PRACTICE'}</div><h2>${session.mode==='exam'?'Patient '+(session.index+1)+' of '+session.ids.length:'Your patient'} · ${esc(p.kind)}</h2><div class="sessionmeta">${esc(p.location)} · Two simulated consultants observing</div></div><div class="timer" id="countdown">10:00</div></div><div class="progress">${session.ids.map((_,i)=>`<span class="${i<session.index?'done':i===session.index?'current':''}"></span>`).join('')}</div>`;}
+function setPatientPosition(position,{spoken=false}={}){
+ if(!['lying','sitting','standing'].includes(position))return;
+ patientPosition=position;
+ const art=$('#wardArt');
+ if(art){art.classList.remove('pose-lying','pose-sitting','pose-standing');art.classList.add('pose-'+position);art.setAttribute('aria-label',c().name+' '+(position==='lying'?'lying in bed':position==='sitting'?'sitting on the bed':'standing beside the bed'));}
+ document.querySelectorAll('[data-pose]').forEach(btn=>{const active=btn.dataset.pose===position;btn.classList.toggle('is-active',active);btn.setAttribute('aria-pressed',String(active));});
+ const labels={lying:'Patient lying down on the bed.',sitting:'Patient sitting upright on the bed.',standing:'Patient standing beside the bed.'};
+ announce(labels[position]+(spoken?' Responding to your instruction.':''));
+}
+function positionInstruction(question){
+ const q=String(question).toLowerCase();
+ if(/(?:lie|lay)\s+(?:back\s+)?down|lie\s+back|lay\s+back|recline|back\s+on\s+(?:the\s+)?bed/.test(q))return {position:'lying',answer:'Of course, doctor. I’ll lie back down.'};
+ if(/stand\s+(?:up|by|beside|next\s+to)|get\s+up\s+(?:off|from)\s+(?:the\s+)?bed/.test(q))return {position:'standing',answer:'All right, doctor. I’ll stand beside the bed.'};
+ if(/sit\s+(?:up|upright|on\s+(?:the\s+)?(?:bed|edge))|come\s+up\s+to\s+sitting/.test(q))return {position:'sitting',answer:'Yes, doctor. I’ll sit up for you.'};
+ return null;
+}
 function encounter(){
  const p=c(),v=r();if(!v.messages.length)v.messages.push({who:'patient',text:p.opening});
- $('#app').innerHTML=`<div class="frame">${header(p)}<div class="call-layout"><section><div class="video-frame" id="videoFrame">
- <video id="patientVideo" autoplay muted playsinline aria-label="Animated simulated patient video"></video>
- <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Illustrated patient · expressive face</span></span><span class="video-tag" id="micState">● Ready</span></div>
- <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div></div>
+ $('#app').innerHTML=`<div class="frame ward-experience">${header(p)}<div class="call-layout"><section class="ward-primary">
+ <div class="video-frame ward-video" id="videoFrame">
+  <video id="patientVideo" class="hide" autoplay muted playsinline aria-label="Simulated patient video"></video>
+  <div class="ward-scene" id="wardScene">${wardScene(p,patientPosition)}</div>
+  <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Hospital ward · illustrated simulation</span></span><span class="video-tag" id="micState">● Ready</span></div>
+  <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div>
+ </div>
+ <div class="ward-position-panel"><div class="position-label"><strong>Patient position</strong><small>Ask the patient to move, or select a position</small></div><div class="position-buttons"><button class="pose-button" data-pose="lying" aria-pressed="${patientPosition==='lying'}">▰ <span>Lie Down</span></button><button class="pose-button" data-pose="sitting" aria-pressed="${patientPosition==='sitting'}">♙ <span>Sit Up</span></button><button class="pose-button" data-pose="standing" aria-pressed="${patientPosition==='standing'}">♟ <span>Stand by Bed</span></button></div></div>
  <div class="call-actions"><button class="btn btn-main btn-large" id="talk">🎙 Start Talking</button><button class="btn" id="mute">Mute / Stop</button><button class="btn" id="examine">🩺 Examine</button><button class="btn" id="next">${session.index===session.ids.length-1?'Finish & Review →':'Next Patient →'}</button></div>
- <p class="floating-status" id="liveStatus">Click Start Talking to speak to the patient. They will answer aloud.</p>
- <form id="typeForm" class="compose"><input id="typed" aria-label="Type a patient question" placeholder="Or type a question to the patient…"><button class="btn" type="submit">Ask →</button></form>
- <div class="transcript"><div>Conversation <span class="muted">· saved for review</span></div><div class="transcript-scroll" id="transcript"></div></div></section>
- <aside class="patient-shell"><div class="patient-info"><div class="eyebrow">YOUR PATIENT</div><h3>${esc(p.name)}</h3><p class="muted">Your patient is ready. Introduce yourself and begin your consultation.</p><span class="status-pill"><span class="green-dot"></span> Ready to consult</span><button class="btn" id="details">View Instructions</button><button class="btn btn-ghost" id="end">End Session</button></div>
- <div id="observers" class="patient-side-panel"></div></aside></div></div>
+ <p class="floating-status" id="liveStatus" role="status">Your patient is ready. Use the microphone or type a question.</p>
+ <form id="typeForm" class="compose"><input id="typed" aria-label="Type a patient question" placeholder="Type a question or ask the patient to sit or stand…"><button class="btn btn-main" type="submit">Ask →</button></form>
+ </section>
+ <aside class="patient-shell ward-sidebar"><div class="patient-info"><div class="eyebrow">CONSULTATION ROOM</div><h3>${esc(p.name)}</h3><p class="muted">Introduce yourself, ask questions and request a position for examination.</p><span class="status-pill"><span class="green-dot"></span> Patient ready</span><div class="ward-side-actions"><button class="btn" id="details">Candidate Instructions</button><button class="btn btn-ghost" id="end">End Session</button></div></div>
+ <div id="observers" class="patient-side-panel"></div>
+ <div class="transcript"><div>Consultation transcript <span class="muted">· saved for review</span></div><div class="transcript-scroll" id="transcript"></div></div></aside></div></div>
  <dialog id="examModal"><h3>Examine the patient</h3><p class="muted">Choose a manoeuvre to reveal the simulated clinical finding. Clicks cannot assess physical examination technique.</p><div id="signs" class="finding-list"></div><div class="modal-actions"><button class="btn btn-main" id="closeSigns">Return to patient</button></div></dialog>
  <dialog id="instructionsModal"><h3>Candidate instructions</h3><p>${esc(p.instruction)}</p><div class="modal-actions"><button class="btn btn-main" id="closeInstructions">Back to patient</button></div></dialog>`;
  $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();speaker.stop();if(videoCall)disconnectVideo();announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
@@ -123,7 +146,8 @@ function encounter(){
  $('#details').onclick=()=>$('#instructionsModal').showModal();$('#closeInstructions').onclick=()=>$('#instructionsModal').close();
  $('#next').onclick=nextCase;$('#end').onclick=()=>{if(confirm('End this session and review your performance?'))finish();};
  $('#typeForm').onsubmit=e=>{e.preventDefault();askTyped();};
- refresh();portrait(p);tick();
+ document.querySelectorAll('[data-pose]').forEach(button=>button.onclick=()=>setPatientPosition(button.dataset.pose));
+ setPatientPosition(patientPosition);refresh();tick();
 }
 function refresh(){
  if(session?.stage!=='patient')return;
@@ -131,6 +155,8 @@ function refresh(){
  const cs=$('#observers');if(cs)cs.innerHTML='<div class="eyebrow">CONSULTANTS OBSERVING</div>'+info().map(o=>'<p style="font-size:12px"><strong>'+esc(o.name)+'</strong><br><span class="muted">'+esc(o.role)+'</span><br><span class="muted">'+esc(o.summary)+'</span></p>').join('')+'<p class="footnote">Educational observations only. These are not live human examiners.</p>';
 }
 async function typedReply(text){
+ const action=positionInstruction(text);
+ if(action){setPatientPosition(action.position,{spoken:true});return action.answer;}
  // The same context-aware case dialogue is used by microphone and keyboard.
  // Only the authored patient fact bank may supply clinical history.
  if(api){try{const response=await fetch(api.replace(/\/+$/,'')+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:c().id,question:text,history:r().messages.slice(0,-1)})});const data=await response.json();if(response.ok&&data.answer)return data.answer;announce('Gemini unavailable; using case-based fallback.');}catch{announce('Gemini unavailable; using case-based fallback.');}}
@@ -154,7 +180,7 @@ async function connect(){
  try{
   if(api&&await connectVideo()){announce('Live video connected. Speak inside the video call.');return;}
   voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t),onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},speaker});
-  await voice.connectBrowser(c(),typedReply);if(api)$('#videoMode').textContent='Illustrated patient · Gemini dialogue';
+  await voice.connectBrowser(c(),typedReply);if(api)$('#videoMode').textContent='Hospital ward · Gemini dialogue';
   $('#micState').textContent='● Mic connected';announce(api?'Gemini patient dialogue connected through browser microphone.':'Browser microphone connected. Speak to your patient.');
  }catch(e){announce('Could not start voice: '+(e.message||'Unknown error')+'. You can type instead.');}
  finally{if($('#talk'))b.disabled=false;}
@@ -173,7 +199,7 @@ async function connectVideo(){
  if(url.protocol!=='https:'||!/(^|\.)daily\.co$/.test(url.hostname))throw Error('Unexpected video room host.');
  stopPortrait();videoCall={id:result.conversation_id};
  const iframe=document.createElement('iframe');iframe.title='Live interactive AI patient video';iframe.src=url.href;iframe.allow='microphone; camera; autoplay; fullscreen';iframe.referrerPolicy='no-referrer';
- $('#videoFrame').prepend(iframe);$('#patientVideo')?.classList.add('hide');
+ $('#videoFrame').prepend(iframe);$('#wardScene')?.classList.add('hide');$('#patientVideo')?.classList.add('hide');
  $('#videoMode').textContent='Live video patient · Tavus';$('#micState').textContent='● Video room connected';
  return true;
 }
@@ -181,7 +207,7 @@ function disconnectVideo(){
  if(!videoCall)return;
  const id=videoCall.id;videoCall=null;$('#videoFrame iframe')?.remove();
  if(api)fetch(api.replace(/\/+$/,'')+'/video/end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:id})}).catch(()=>{});
- $('#patientVideo')?.classList.remove('hide');portrait(c());
+ $('#wardScene')?.classList.remove('hide');
 }
 function drawSigns(){
  const signs=$('#signs'),v=r(),p=c();
@@ -238,7 +264,7 @@ async function assess(id){
 function nextCase(){
  if(session?.stage!=='patient')return;
  const id=c().id;assess(id);stop();
- if(session.index<session.ids.length-1){session.index++;session.caseStart=Date.now();render();}else finish();
+ if(session.index<session.ids.length-1){session.index++;patientPosition='lying';session.caseStart=Date.now();render();}else finish();
 }
 function finish(){
  if(!session)return;
