@@ -1,3 +1,9 @@
+## Gemini expressive patient voices (October 2026)
+
+Patient audio now uses the **same Cloudflare `GEMINI_API_KEY` secret** as conversation text. `POST /speech` sends fictional patient dialogue to `gemini-3.1-flash-tts-preview`, selects a consistent voice by patient, and packages 24-kHz PCM as browser-playable WAV. When Gemini audio cannot be generated, the frontend gracefully falls back to the device voice and displays a diagnostic message. No new login or paid OpenAI API key is required; Google's free-tier quotas and availability apply. Only fictional case information should be spoken. Microphone transcription remains browser-dependent, not Gemini Live streaming.
+
+To activate: merge/deploy the GitHub branch to the configured Cloudflare Worker; confirm `GEMINI_API_KEY` is an encrypted Production secret; optionally set `GEMINI_TTS_MODEL` to `gemini-3.1-flash-tts-preview`; hard refresh the GitHub Pages site. Ask a patient a question and inspect Network `speech`: HTTP 200 with `audio/wav` indicates Gemini speech success. HTTP 502/429 indicates provider or quota errors; the device voice is the fallback. The model supports free tier but is not unlimited.
+
 
 ## Gemini free-tier patient conversations
 
@@ -8,7 +14,7 @@ The site now supports a Cloudflare Worker `POST /chat` endpoint powered by Gemin
 3. In the PACES Ward homepage open **Optional Gemini patient conversation setup**, enter your deployed Worker URL (not the key), and select **Save URL**.
 4. Start a case and type a question or use **Start Talking** in a supported speech-recognition browser. Patient replies will come from Gemini when available, using the specific case facts and recent dialogue; otherwise the authored fallback is used.
 
-Optional non-secret Worker variable `GEMINI_MODEL` defaults to `gemini-2.5-flash`; choose a model enabled for your Google AI Studio project and quota. Browser speech voices remain device-dependent, and this is not the Gemini Live audio API. GitHub Pages cannot store API secrets. Free-tier usage is limited and publicly exposed unauthenticated Worker endpoints can be abused; consider access controls and per-user limits before broad public release. Do not send real patient information.
+Optional non-secret Worker variable `GEMINI_MODEL` defaults to `gemini-2.5-flash`; choose a model enabled for your Google AI Studio project and quota. Gemini TTS now powers patient audio when available; browser voices remain the automatic fallback. This is not the Gemini Live audio API. GitHub Pages cannot store API secrets. Free-tier usage is limited and publicly exposed unauthenticated Worker endpoints can be abused; consider access controls and per-user limits before broad public release. Do not send real patient information.
 
 # PACES Ward — Interactive patient practice
 
