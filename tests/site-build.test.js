@@ -5,9 +5,9 @@ import {photographicStage} from '../photographic-scene.js';
 
 test('photographic fallback uses HTTPS and clearly discloses illustration',()=>{
  const html=photographicStage({name:'Helen Ward',sex:'Woman'});
- assert.match(html,/https:\/\/images\.unsplash\.com\/photo-/);
- assert.match(html,/Illustrative hospital photograph/);
- assert.match(html,/Simulated patient Helen Ward/);
+ assert.match(html,/https:\/\/pikwizard\.com\/pw\/medium\//);
+ assert.match(html,/One-on-one practice/);
+ assert.match(html,/Photographic stand-in, not live video/);
  assert.match(html,/wardPhotograph/);
 });
 
