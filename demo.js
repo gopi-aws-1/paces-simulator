@@ -2,6 +2,7 @@
 import {cases as base} from './cases.js';
 import {extraCases} from './extra-cases.js';
 import {naturalReply} from './conversation.js';
+import {immediatePatientReply} from './conversation.js';
 import {VoiceRoom} from './voice.js';
 import {PatientSpeaker} from './speaker.js';
 import {drawPatient} from './avatar.js';
@@ -96,6 +97,7 @@ function wardScene(patient,position='lying'){
 const patients=[...base,...extraCases],$=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API_KEY='paces-ward-voice-api';
+let aiReplyUnavailableUntil=0; // Avoid repeated delays after a failed optional AI request.
 let patientPosition='lying';
 let api='',session=null,recognition=null,voice=null,token=0,cameraCanvas=null,cameraStream=null,cameraFrame=0,cameraVideo=null,sheet=null,videoCall=null,patientTalking=false,timer=null;
 const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);updatePatientPresence(state);},onStatus:announce});
@@ -261,14 +263,22 @@ function refresh(){
 async function typedReply(text){
  const action=positionInstruction(text);
  if(action){setPatientPosition(action.position,{spoken:true});return action.answer;}
- // The same context-aware case dialogue is used by microphone and keyboard.
- // Only the authored patient fact bank may supply clinical history.
- if(api){
+ // Remarks such as "let me review your notes" should get an immediate
+ // patient acknowledgement, not a slow AI call or an unrelated symptom list.
+ const immediate=immediatePatientReply(c(),text,r().messages);
+ if(immediate)return immediate.text;
+ // The case bank remains the source of clinical facts if optional AI is slow.
+ if(api&&Date.now()>=aiReplyUnavailableUntil){
   try{
+   announce('Patient considering what you said…');
    const {response,data}=await requestPatientReply(fetch,api.replace(/\/+$/,'')+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:c().id,question:text,history:r().messages.slice(0,-1)})});
-   if(response.ok&&typeof data.answer==='string'&&data.answer.trim())return data.answer.trim();
-  }catch{/* Fast local case-based reply whenever optional AI is unavailable or too slow. */}
-  announce('Patient responding using the local case details…');
+   if(response.ok&&typeof data.answer==='string'&&data.answer.trim()){
+    aiReplyUnavailableUntil=0;
+    return data.answer.trim();
+   }
+  }catch{/* Deadline or provider failure: switch to the local patient immediately. */}
+  aiReplyUnavailableUntil=Date.now()+30000;
+  announce('Using local patient replies while the AI service catches up.');
  }
  return naturalReply(c(),text,r().messages).text;
 }
@@ -293,7 +303,8 @@ async function askTyped(){
  const finish=()=>{
   if(session?.stage==='patient'&&c().id===caseId){input.disabled=false;if(submit)submit.disabled=false;}
  };
- const started=()=>{if(session?.stage==='patient'&&c().id===caseId){updatePatientPresence(true);log('patient',answer);}};
+ log('patient',answer); // Show the response immediately, even if audio takes a moment.
+ const started=()=>{if(session?.stage==='patient'&&c().id===caseId)updatePatientPresence(true);};
  if(voice?.active&&voice.mode==='browser'){
   voice.busy=true;
   try{voice.recognition?.abort();}catch{}
