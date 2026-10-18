@@ -275,8 +275,8 @@ async function connect(){
  try{
   if(api&&await connectVideo()){announce('Live video connected. Speak inside the video call.');return;}
   voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t),onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},speaker});
-  await voice.connectBrowser(c(),typedReply);if(api)$('#videoMode').textContent='Hospital ward · Gemini dialogue';
-  $('#micState').textContent='● Mic connected';announce(api?'Gemini patient dialogue connected through browser microphone.':'Browser microphone connected. Speak to your patient.');
+  await voice.connectBrowser(c(),typedReply,api);if(api)$('#videoMode').textContent='Hospital ward · Gemini dialogue';
+  $('#micState').textContent='● Mic connected';announce(api?'Microphone connected. Gemini dialogue and patient voice are enabled; audio may fall back to the device voice if Gemini TTS is unavailable.':'Browser microphone connected. Speak to your patient.');
  }catch(e){announce('Could not start voice: '+(e.message||'Unknown error')+'. You can type instead.');}
  finally{if($('#talk'))b.disabled=false;}
 }
