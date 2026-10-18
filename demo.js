@@ -7,6 +7,7 @@ import {PatientSpeaker} from './speaker.js';
 import {drawPatient} from './avatar.js';
 import {patientStyle} from './patient-style.js';
 import {monitorMarkup,animateMonitor} from './vitals-monitor.js';
+import {photographicStage,setupPhotographicStage} from './photographic-scene.js';
 import {observerSummaries,assessmentPayload} from './examiner.js';
 
 
@@ -96,7 +97,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const API_KEY='paces-ward-voice-api';
 let patientPosition='lying';
 let api='',session=null,recognition=null,voice=null,token=0,cameraCanvas=null,cameraStream=null,cameraFrame=0,cameraVideo=null,sheet=null,videoCall=null,patientTalking=false,timer=null;
-const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},onStatus:announce});
+const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);updatePatientPresence(state);},onStatus:announce});
 try{api=localStorage.getItem(API_KEY)||'';}catch{}
 function announce(s){const e=$('#liveStatus');if(e)e.textContent=s;}
 function speak(text,voiceIndex=0,done=()=>{},onStart=()=>{}){
@@ -201,6 +202,10 @@ function hearIntro(){
 }
 function firstPatient(){patientPosition='lying';stop();session.stage='patient';session.caseStart=Date.now();render();}
 function header(p){return `<div class="sessionbar"><div><div class="eyebrow">${session.mode==='exam'?'EXTENDED TRAINING CIRCUIT':'SINGLE CASE PRACTICE'}</div><h2>${session.mode==='exam'?'Patient '+(session.index+1)+' of '+session.ids.length:'Your patient'} · ${esc(p.kind)}</h2><div class="sessionmeta">${esc(p.location)} · Two simulated consultants observing</div></div><div class="timer" id="countdown">10:00</div></div><div class="progress">${session.ids.map((_,i)=>`<span class="${i<session.index?'done':i===session.index?'current':''}"></span>`).join('')}</div>`;}
+function updatePatientPresence(speaking){
+ const frame=$('#videoFrame');frame?.classList.toggle('patient-speaking',!!speaking);
+ const text=$('#presenceText');if(text)text.textContent=speaking?'Patient speaking…':'Patient ready to speak';
+}
 function setPatientPosition(position,{spoken=false}={}){
  if(!['lying','sitting','standing'].includes(position))return;
  patientPosition=position;
@@ -222,8 +227,8 @@ function encounter(){
  $('#app').innerHTML=`<div class="frame ward-experience">${header(p)}<div class="call-layout"><section class="ward-primary">
  <div class="video-frame ward-video" id="videoFrame">
   <video id="patientVideo" class="hide" autoplay muted playsinline aria-label="Simulated patient video"></video>
-  <div class="ward-scene" id="wardScene">${wardScene(p,patientPosition)}</div><div class="monitor-container" id="monitorContainer">${monitorMarkup(p)}</div>
-  <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Hospital ward · interactive simulated patient</span></span><span class="video-tag" id="micState">● Ready</span></div>
+  <div class="ward-scene" id="wardScene">${wardScene(p,patientPosition)}</div>${photographicStage(p)}<div class="monitor-container" id="monitorContainer">${monitorMarkup(p)}</div>
+  <div class="video-top"><span class="video-tag"><span class="green-dot"></span><span id="videoMode">Photographic ward · simulated patient</span></span><span class="video-tag" id="micState">● Ready</span></div>
   <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div>
  </div>
  <div class="ward-position-panel"><div class="position-label"><strong>Patient position</strong><small>Ask the patient to move, or select a position</small></div><div class="position-buttons"><button class="pose-button" data-pose="lying" aria-pressed="${patientPosition==='lying'}">▰ <span>Lie Down</span></button><button class="pose-button" data-pose="sitting" aria-pressed="${patientPosition==='sitting'}">♙ <span>Sit Up</span></button><button class="pose-button" data-pose="standing" aria-pressed="${patientPosition==='standing'}">♟ <span>Stand by Bed</span></button></div></div>
@@ -243,7 +248,7 @@ function encounter(){
  $('#next').onclick=nextCase;$('#end').onclick=()=>{if(confirm('End this session and review your performance?'))finish();};
  $('#typeForm').onsubmit=e=>{e.preventDefault();askTyped();};
  document.querySelectorAll('[data-pose]').forEach(button=>button.onclick=()=>setPatientPosition(button.dataset.pose));
- setPatientPosition(patientPosition);animateMonitor($('#monitorContainer .clinical-monitor'));refresh();tick();
+ setPatientPosition(patientPosition);setupPhotographicStage();animateMonitor($('#monitorContainer .clinical-monitor'));refresh();tick();
  
 }
 function refresh(){
@@ -291,7 +296,7 @@ async function connect(){
  const b=$('#talk');b.disabled=true;announce('Connecting your microphone…');
  try{
   if(api&&await connectVideo()){announce('Live video connected. Speak inside the video call.');return;}
-  voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t),onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);},speaker});
+  voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t),onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);updatePatientPresence(state);},speaker});
   await voice.connectBrowser(c(),typedReply,api);if(api)$('#videoMode').textContent='Hospital ward · Gemini dialogue';
   $('#micState').textContent='● Mic connected';announce(api?'Microphone connected. Gemini dialogue and patient voice are enabled; audio may fall back to the device voice if Gemini TTS is unavailable.':'Browser microphone connected. Speak to your patient.');
  }catch(e){announce('Could not start voice: '+(e.message||'Unknown error')+'. You can type instead.');}
@@ -311,7 +316,7 @@ async function connectVideo(){
  if(url.protocol!=='https:'||!/(^|\.)daily\.co$/.test(url.hostname))throw Error('Unexpected video room host.');
  stopPortrait();videoCall={id:result.conversation_id};
  const iframe=document.createElement('iframe');iframe.title='Live interactive AI patient video';iframe.src=url.href;iframe.allow='microphone; camera; autoplay; fullscreen';iframe.referrerPolicy='no-referrer';
- $('#videoFrame').prepend(iframe);$('#wardScene')?.classList.add('hide');$('#patientVideo')?.classList.add('hide');
+ $('#videoFrame').prepend(iframe);$('#videoFrame')?.classList.add('video-live');$('#wardScene')?.classList.add('hide');$('#patientVideo')?.classList.add('hide');
  $('#videoMode').textContent='Live video patient · Tavus';$('#micState').textContent='● Video room connected';
  return true;
 }
@@ -319,7 +324,7 @@ function disconnectVideo(){
  if(!videoCall)return;
  const id=videoCall.id;videoCall=null;$('#videoFrame iframe')?.remove();
  if(api)fetch(api.replace(/\/+$/,'')+'/video/end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:id})}).catch(()=>{});
- $('#wardScene')?.classList.remove('hide');
+ $('#wardScene')?.classList.remove('hide');$('#videoFrame')?.classList.remove('video-live');
 }
 function drawSigns(){
  const signs=$('#signs'),v=r(),p=c();
