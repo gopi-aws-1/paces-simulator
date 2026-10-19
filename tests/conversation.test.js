@@ -136,3 +136,15 @@ test('ticker uses Montserrat, loops from right to left, and respects reduced mot
  assert.doesNotMatch(html,/fonts\.cdnfonts\.com|beautiful-people-personal-use/);
  assert.doesNotMatch(css,/Beautiful People/);
 });
+
+test('site-wide credit stays below the main content without changing the birthday ticker',()=>{
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../demo.css',import.meta.url),'utf8');
+ assert.match(html,/<footer class="site-footer" aria-label="Site credits"><span>Developed by Gopi<\/span><\/footer>/);
+ assert.ok(html.indexOf('<footer class="site-footer"')>html.indexOf('<main id="app"'));
+ assert.ok(html.indexOf('<footer class="site-footer"')<html.indexOf('<script type="module"'));
+ assert.match(html,/Happy birthday my princess 💝/);
+ assert.match(css,/body > main#app\{flex:1 0 auto;width:100%\}/);
+ assert.match(css,/\.site-footer\{/);
+ assert.match(css,/@media\(max-width:600px\)\{\.site-footer/);
+});
