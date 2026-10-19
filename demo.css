@@ -372,3 +372,23 @@ main:has(.ward-experience){max-width:1680px;padding:18px 18px 65px}
  .dedication-track{animation:none;transform:none;will-change:auto}
  .dedication-message:nth-child(2){display:none}
 }
+
+
+/* Quiet site-wide credit below all consultation and feedback screens. */
+body{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
+body > main#app{flex:1 0 auto;width:100%}
+.site-footer{
+ flex:none;
+ width:100%;
+ padding:19px max(16px,env(safe-area-inset-right)) calc(19px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+ border-top:1px solid rgba(169,200,221,.16);
+ background:#081c2c;
+ color:#9fb6c9;
+ text-align:center;
+ font-family:'Montserrat',Arial,Helvetica,sans-serif;
+ font-size:12px;
+ font-weight:600;
+ letter-spacing:.035em;
+ line-height:1.5;
+}
+@media(max-width:600px){.site-footer{padding-top:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));font-size:11px}}
