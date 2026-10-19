@@ -297,3 +297,17 @@ main:has(.ward-experience){max-width:1680px;padding:18px 18px 65px}
 .individual-reviews{margin:24px 0 12px;font-size:23px}.case-results .feedback-section{margin-top:12px}
 @media(max-width:760px){.consultant-feedback-grid,.skill-rating-grid,.summary-skill-grid{grid-template-columns:1fr}.feedback-section{padding:15px}.feedback-casehead{padding:17px}.feedback-section>h3{font-size:19px}}
 @media(max-width:420px){.skill-rating{grid-template-columns:1fr;align-items:start}.skill-pill{justify-self:start}.debrief-actions{display:grid}.debrief-actions button{width:100%}}
+
+
+/* Examiner presentation dialog */
+.examiner-dialog{width:min(760px,94vw);max-width:760px;max-height:85vh;overflow:auto}
+#presentationForm{display:grid;gap:17px;margin:15px 0}
+.examiner-question{display:grid;gap:8px;font-size:14px;line-height:1.5}
+.examiner-question strong{color:#d8f3ed;font-weight:700}
+.examiner-question textarea{width:100%;min-height:105px;padding:13px 14px;border:1px solid #527488;background:#092536;color:#f0fbff;border-radius:10px;resize:vertical;font:inherit}
+.examiner-question textarea:focus-visible{outline:3px solid #67d4bc;outline-offset:2px}
+.answer-comparison{border-bottom:1px solid #31586a;padding:11px 0;color:#e4f1f5;font-size:13px}
+.answer-comparison:last-child{border-bottom:0}.answer-comparison p{margin:7px 0;line-height:1.6}
+.ward-experience .call-actions{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:800px){.ward-experience .call-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.ward-experience .call-actions #present{grid-column:1/-1}}
