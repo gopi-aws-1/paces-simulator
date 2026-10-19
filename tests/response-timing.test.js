@@ -38,7 +38,7 @@ test('UI enforces bounded response and speech waits, preserving the monitor',()=
  assert.match(speaker,/controller\.abort\(\)/);
  assert.match(speaker,/this\.browserSpeech\(text,patient,finish,own,start\)/);
  assert.match(ui,/animateMonitor\(/);
- assert.match(workflow,/response-timing\.js _site\//);
+ assert.match(workflow,/response-timing\.js grading\.js feedback-ui\.js _site\//);
 });
 
 test('spoken reply appears in the transcript without waiting for voice synthesis',()=>{
