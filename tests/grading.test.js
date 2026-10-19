@@ -108,3 +108,31 @@ test('feedback timing choices, case debrief and final export are connected',()=>
  assert.match(worker,/judgeGemini/);
  assert.match(worker,/candidateMessages/);
 });
+
+test('examiner presentation answers contribute to reasoning ratings but do not fake physical observation',()=>{
+ const c=cases[2];
+ const rec={messages:[{who:'patient',text:c.opening}],signs:[0,1],answers:{0:'My working diagnosis is pulmonary embolism or a blood clot. I would urgently consider ACS as an alternative.',1:'I would arrange an urgent senior review, observations and the Wells pathway.'}};
+ const report=gradeEncounter(c,rec);
+ assert.equal(report.examinerAnswers,2);
+ assert.ok(report.skills.find(x=>x.id==='D').grade>=1);
+ assert.ok(report.skills.find(x=>x.id==='E').grade>=1);
+ assert.equal(report.skills.find(x=>x.id==='A').grade,null);
+ assert.equal(report.skills.find(x=>x.id==='B').grade,null);
+ assert.ok(report.consultants[0].strengths.some(x=>/pulmonary embolism/i.test(x.quote)));
+ const html=caseFeedbackHtml(c,{...rec,report});
+ assert.match(html,/Examiner questions and teaching points/);
+ assert.match(html,/My working diagnosis is pulmonary embolism/);
+ assert.match(html,/Suggested teaching points/);
+});
+test('student sees examiner questions during practice but not the calibration answers',()=>{
+ const ui=readFileSync(new URL('../demo.js',import.meta.url),'utf8');
+ const start=ui.indexOf('function presentationModal('),end=ui.indexOf('function encounter(){',start);
+ const modal=ui.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ assert.match(modal,/entry\[0\]/);
+ assert.doesNotMatch(modal,/entry\[1\]/);
+ assert.match(ui,/id="present">Present to Consultants/);
+ assert.match(ui,/savePresentation/);
+ assert.match(ui,/answers\[field\.dataset\.examinerAnswer\]/);
+ assert.match(ui,/Object\.values\(v\.answers\|\|\{\}\)/);
+});
