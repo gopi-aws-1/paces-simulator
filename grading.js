@@ -46,7 +46,7 @@ const CASE={
  9:{D:[rule('Considered migraine',/\b(?:migraine|headache syndrome|cluster headache)\b/i,'Explain the likely headache type and differential.')],E:[rule('Checked red flags',/\b(?:thunderclap|sudden|neurolog|weakness|fever|neck stiffness|seizure|red flag)\b/i,'Screen for secondary headache red flags.')] }
 };
 const allowed=c=>c.kind==='Communication'?['C','E','F','G']:c.kind==='Consultation'?['A','B','C','D','E','F','G']:['A','B','D','E','G'];
-const candidateText=r=>(r?.messages||[]).filter(x=>x?.who==='you'&&typeof x.text==='string'&&x.text.trim()).map(x=>x.text.trim());
+const candidateText=r=>[...(r?.messages||[]).filter(x=>x?.who==='you'&&typeof x.text==='string'&&x.text.trim()).map(x=>x.text.trim()),...Object.values(r?.answers||{}).filter(x=>typeof x==='string'&&x.trim()).map(x=>x.trim())];
 const shorten=s=>s.length>155?s.slice(0,152)+'…':s;
 const unsafe=(c,utterances)=>utterances.filter(u=>{
  const s=u.toLowerCase();
@@ -79,7 +79,7 @@ function reviewer(index,skills,turns){
  const safety=selected.flatMap(s=>(s.unsafe||[]).map(quote=>({skill:s.id,quote})));
  return {name:index===1?'Consultant 1 · Clinical':'Consultant 2 · Communication',role:index===1?'Clinical reasoning and judgement':'Communication, concerns and welfare',
   skills:selected.map(s=>s.id),strengths,improvements,safety,
-  summary:!turns?'No candidate dialogue recorded; only developmental advice is possible.':safety.length?'Potential patient-safety concern in recorded words; review before the next case.':strengths.length?'Feedback based on the candidate’s actual statements and case actions.':'Little assessable evidence recorded in this area.',
+  summary:!turns?'No candidate dialogue or examiner answers were recorded; only developmental advice is possible.':safety.length?'Potential patient-safety concern in recorded words; review before the next case.':strengths.length?'Feedback based on the candidate’s actual statements and case actions.':'Little assessable evidence recorded in this area.',
   note:selected.some(s=>s.id==='A'||s.id==='B')?'Hands-on physical technique and sign recognition cannot be graded from simulated clicks.':null
  };
 }
@@ -89,7 +89,7 @@ export function gradeEncounter(c,r){
  const skills=Object.keys(SKILLS).map(id=>assessSkill(c,id,r,utterances,unsafeStatements));
  const rated=skills.filter(s=>s.applicable&&s.grade!==null);
  return {schema:'educational-paces-1',caseId:c.id,title:c.title,kind:c.kind,
-  studentTurns:utterances.length,examActions:(r?.signs||[]).length,
+  studentTurns:utterances.length,examinerAnswers:Object.values(r?.answers||{}).filter(x=>typeof x==='string'&&x.trim()).length,examActions:(r?.signs||[]).length,
   evidenceQuality:utterances.length>=8?'Good transcript coverage':utterances.length>=3?'Partial transcript coverage':'Very limited transcript coverage',
   skills,consultants:[reviewer(1,skills,utterances.length),reviewer(2,skills,utterances.length)],
   observedPoints:rated.reduce((n,s)=>n+s.grade,0),observedMax:rated.length*2,
