@@ -116,3 +116,18 @@ Photo credits (used as illustrative stock models rather than the fictional patie
 - [Male solo inpatient / PikWizard](https://pikwizard.com/photo/smiling-patient-sitting-on-hospital-bed-in-medical-gown/b81cfa7d376d16f87b671099a7d5eac1/), PikWizard free-use image.
 
 All monitor values are fictional educational telemetry; normal-range defaults do not imply that the case's author supplied actual observations. Do not use for clinical decision making.
+
+
+## Consultant grading and PACES practice debrief
+
+Choose **At the end of the circuit** (uninterrupted exam-style practice, the default) or **After every patient** from the main screen. After each case in the second mode, the two simulated consultants show feedback before the trainee proceeds. The final report combines all completed cases and can be exported with transcripts and grades as JSON.
+
+Select **Present to Consultants** before finishing a case to answer case-specific examiner questions. Your clinical presentation is recorded, used as candidate evidence and shown alongside teaching answers **only after the case ends**. Answer keys are calibration material, never proof of what a trainee said.
+
+This practice system uses [The Federation's PACES A–G framework](https://www.thefederation.uk/examinations/paces/format). Observable recorded evidence receives provisional learning ratings on the familiar 0 (unsatisfactory), 1 (borderline), 2 (satisfactory) scale, with quoted evidence and practice tips. **This browser cannot witness real examination technique or reliably verify physical signs**: Skills A and B are explicitly **Not assessable digitally**, even when a finding is selected. Unassessed skills and inadequate evidence are not given numerical grades. Aggregates never claim to be the official 168-mark PACES total or a pass/fail prediction.
+
+Two simulated consultant perspectives:
+- Consultant 1: differential diagnosis, judgement, management and safety demonstrated by the recorded clinical answers; cannot verify hands-on technique.
+- Consultant 2: eliciting concerns, empathy, communication and welfare, when those skills are assessed in that encounter.
+
+The local evidence-limited report works without an AI service. If your separate secure Cloudflare Worker has GEMINI_API_KEY (or OPENAI_API_KEY), the updated /evaluate route can optionally provide two more nuanced, evidence-specific AI teaching commentaries. This requires redeploying the worker separately: GitHub Pages deploys only the static website, not server/worker.js. When the service is unavailable, the local feedback remains usable. Neither AI assessment nor local provisional scores replace an accredited PACES examiner. Do not enter real patient data.
