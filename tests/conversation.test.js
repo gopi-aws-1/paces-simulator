@@ -61,10 +61,12 @@ test('the main app uses the same grounded answers for typed and browser-micropho
  assert.match(ui,/return naturalReply\(c\(\),text,r\(\)\.messages\)\.text/);
  assert.doesNotMatch(ui,/I am not sure about that, doctor\. Could you ask me in a different way/);
 });
-test('personal dedication without names appears at the top on all screens',()=>{
+test('birthday ticker replaces the previous dedication on all screens',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.match(html,/<div class="dedication-banner"><h2>specially designed for my princess<\/h2>/);
- assert.doesNotMatch(html,/Dr\. Jyo/i);
+ assert.match(html,/<div class="dedication-banner" role="region" aria-label="Happy birthday my princess 💝">/);
+ assert.equal((html.match(/<span class="dedication-message">Happy birthday my princess 💝<\/span>/g)||[]).length,2);
+ assert.match(html,/<div class="dedication-track" aria-hidden="true">/);
+ assert.doesNotMatch(html,/specially designed for my princess|Dr\. Jyo|Beautiful People/i);
  assert.ok(html.indexOf('dedication-banner')<html.indexOf('<header>'));
 });
 
@@ -120,13 +122,17 @@ test('unfamiliar remarks never force the patient to ask for more details repeate
  assert.ok(new Set(replies).size>=2);
 });
 
-test('the personal dedication uses Beautiful People without changing other headings',()=>{
+test('ticker uses Montserrat, loops from right to left, and respects reduced motion',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const css=readFileSync(new URL('../demo.css',import.meta.url),'utf8');
- assert.match(html,/<h2>specially designed for my princess<\/h2>/);
- assert.match(html,/https:\/\/fonts\.cdnfonts\.com\/css\/beautiful-people-personal-use/);
- assert.match(css,/\.dedication-banner h2\{\s*font-family:'Beautiful People Personal Use'/);
- assert.match(css,/font-family:'Beautiful People Personal Use','Brush Script MT','Segoe Script',cursive/);
- assert.match(css,/@media\(max-width:600px\)\{\s*\.dedication-banner/);
- assert.doesNotMatch(html,/Dr\. Jyo/i);
+ assert.match(html,/https:\/\/fonts\.googleapis\.com\/css2\?family=Montserrat/);
+ assert.match(css,/font-family:'Montserrat',Arial,Helvetica,sans-serif/);
+ assert.match(css,/animation:birthday-news-scroll 19s linear infinite/);
+ assert.match(css,/@keyframes birthday-news-scroll\{/);
+ assert.match(css,/to\{transform:translate3d\(-50%,0,0\)\}/);
+ assert.match(css,/@media\(max-width:600px\)\{/);
+ assert.match(css,/@media\(prefers-reduced-motion:reduce\)\{/);
+ assert.match(css,/\.dedication-track\{animation:none;transform:none;will-change:auto\}/);
+ assert.doesNotMatch(html,/fonts\.cdnfonts\.com|beautiful-people-personal-use/);
+ assert.doesNotMatch(css,/Beautiful People/);
 });
