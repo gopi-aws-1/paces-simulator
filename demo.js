@@ -127,7 +127,7 @@ function begin(mode,id=null){
  render();
 }
 function c(){return session&&patients[session.ids[session.index]];}
-function r(){const id=c().id;return session.records[id]??={messages:[],signs:[],notes:'',assessment:null};}
+function r(){const id=c().id;return session.records[id]??={messages:[],signs:[],answers:{},notes:'',assessment:null};}
 function info(){return observerSummaries(c(),r());}
 function log(who,text){
  if(!session||session.stage!=='patient'||!text?.trim())return;
@@ -228,6 +228,16 @@ function positionInstruction(question){
  if(/sit\s+(?:up|upright|on\s+(?:the\s+)?(?:bed|edge))|come\s+up\s+to\s+sitting/.test(q))return {position:'sitting',answer:'Yes, doctor. I’ll sit up for you.'};
  return null;
 }
+function presentationModal(p,record){
+ const questions=(p.qa||[]).map((entry,i)=>{
+  const question=entry[0],answer=record.answers?.[i]||'';
+  return '<label class="examiner-question"><strong>Examiner question '+(i+1)+': '+esc(question)+'</strong>'+
+   '<textarea data-examiner-answer="'+i+'" rows="3" maxlength="2000" placeholder="Explain your clinical findings and reasoning…">'+esc(answer)+'</textarea></label>';
+ }).join('');
+ return '<dialog id="presentationModal" class="examiner-dialog"><h3>Present to the consultants</h3>'+
+  '<p class="muted">Record how you would present your findings and answer the examiners. Your responses are used for clinical reasoning feedback; answers are not provided until after the case.</p>'+
+  '<form id="presentationForm">'+questions+'</form><div class="modal-actions"><button class="btn" type="button" id="cancelPresentation">Cancel</button><button class="btn btn-main" type="button" id="savePresentation">Save presentation</button></div></dialog>';
+}
 function encounter(){
  const p=c(),v=r();if(!v.messages.length)v.messages.push({who:'patient',text:p.opening});
  $('#app').innerHTML=`<div class="frame ward-experience">${header(p)}<div class="call-layout"><section class="ward-primary">
@@ -238,7 +248,7 @@ function encounter(){
   <div class="video-nameplate"><span class="nameplate"><strong>${esc(p.name)}</strong><small>${esc(p.age)} years · ${esc(p.sex)} · Fictional patient</small></span><div id="bars" class="signal"><span></span><span></span><span></span><span></span></div></div>
  </div>
  <div class="ward-position-panel"><div class="position-label"><strong>Patient position</strong><small>Ask the patient to move, or select a position</small></div><div class="position-buttons"><button class="pose-button" data-pose="lying" aria-pressed="${patientPosition==='lying'}">▰ <span>Lie Down</span></button><button class="pose-button" data-pose="sitting" aria-pressed="${patientPosition==='sitting'}">♙ <span>Sit Up</span></button><button class="pose-button" data-pose="standing" aria-pressed="${patientPosition==='standing'}">♟ <span>Stand by Bed</span></button></div></div>
- <div class="call-actions"><button class="btn btn-main btn-large" id="talk">🎙 Start Talking</button><button class="btn" id="mute">Mute / Stop</button><button class="btn" id="examine">🩺 Examine</button><button class="btn" id="next">${session.feedbackTiming==='each'?'End Case & Review →':session.index===session.ids.length-1?'Finish & Review →':'Next Patient →'}</button></div>
+ <div class="call-actions"><button class="btn btn-main btn-large" id="talk">🎙 Start Talking</button><button class="btn" id="mute">Mute / Stop</button><button class="btn" id="examine">🩺 Examine</button><button class="btn" id="present">Present to Consultants</button><button class="btn" id="next">${session.feedbackTiming==='each'?'End Case & Review →':session.index===session.ids.length-1?'Finish & Review →':'Next Patient →'}</button></div>
  <p class="floating-status" id="liveStatus" role="status">Your patient is ready. Use the microphone or type a question.</p>
  <form id="typeForm" class="compose"><input id="typed" aria-label="Type a patient question" placeholder="Type a question or ask the patient to sit or stand…"><button class="btn btn-main" type="submit">Ask →</button></form>
  </section>
@@ -246,9 +256,12 @@ function encounter(){
  <div id="observers" class="patient-side-panel"></div>
  <div class="transcript"><div>Consultation transcript <span class="muted">· saved for review</span></div><div class="transcript-scroll" id="transcript"></div></div></aside></div></div>
  <dialog id="examModal"><h3>Examine the patient</h3><p class="muted">Choose a manoeuvre to reveal the simulated clinical finding. Clicks cannot assess physical examination technique.</p><div id="signs" class="finding-list"></div><div class="modal-actions"><button class="btn btn-main" id="closeSigns">Return to patient</button></div></dialog>
- <dialog id="instructionsModal"><h3>Candidate instructions</h3><p>${esc(p.instruction)}</p><div class="modal-actions"><button class="btn btn-main" id="closeInstructions">Back to patient</button></div></dialog>`;
+ ${presentationModal(p,v)}<dialog id="instructionsModal"><h3>Candidate instructions</h3><p>${esc(p.instruction)}</p><div class="modal-actions"><button class="btn btn-main" id="closeInstructions">Back to patient</button></div></dialog>`;
  $('#talk').onclick=connect;$('#mute').onclick=()=>{voice?.stop();speaker.stop();if(videoCall)disconnectVideo();const input=$('#typed'),send=$('#typeForm button[type="submit"]');if(input)input.disabled=false;if(send)send.disabled=false;announce('Microphone is off. Start Talking to reconnect.');$('#micState').textContent='● Muted';};
  $('#examine').onclick=()=>{drawSigns();$('#examModal').showModal();};
+ $('#present').onclick=()=>$('#presentationModal').showModal();
+ $('#cancelPresentation').onclick=()=>$('#presentationModal').close();
+ $('#savePresentation').onclick=()=>{const answers=r().answers||={};document.querySelectorAll('#presentationForm [data-examiner-answer]').forEach(field=>{answers[field.dataset.examinerAnswer]=field.value.trim().slice(0,2000);});$('#presentationModal').close();announce('Your examiner presentation is saved for the consultant review.');};
  $('#closeSigns').onclick=()=>$('#examModal').close();
  $('#details').onclick=()=>$('#instructionsModal').showModal();$('#closeInstructions').onclick=()=>$('#instructionsModal').close();
  $('#next').onclick=nextCase;$('#end').onclick=()=>{if(confirm('End this session and review your performance?'))finish();};
@@ -401,7 +414,7 @@ async function assess(id){
  const v=activeSession.records[id];
  if(!v)return;
  ensurePracticeReport(id);
- if(!api||!v.messages.some(m=>m.who==='you')||v.assessment||v.assessmentPending||v.assessmentError)return;
+ if(!api||(!v.messages.some(m=>m.who==='you')&&!Object.values(v.answers||{}).some(x=>x.trim()))||v.assessment||v.assessmentPending||v.assessmentError)return;
  v.assessmentPending=true;
  const abort=new AbortController();
  const timeout=setTimeout(()=>abort.abort(),14000);
