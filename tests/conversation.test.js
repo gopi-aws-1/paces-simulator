@@ -119,3 +119,14 @@ test('unfamiliar remarks never force the patient to ask for more details repeate
  }
  assert.ok(new Set(replies).size>=2);
 });
+
+test('the personal dedication uses Beautiful People without changing other headings',()=>{
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../demo.css',import.meta.url),'utf8');
+ assert.match(html,/<h2>specially designed for my princess<\/h2>/);
+ assert.match(html,/https:\/\/fonts\.cdnfonts\.com\/css\/beautiful-people-personal-use/);
+ assert.match(css,/\.dedication-banner h2\{\s*font-family:'Beautiful People Personal Use'/);
+ assert.match(css,/font-family:'Beautiful People Personal Use','Brush Script MT','Segoe Script',cursive/);
+ assert.match(css,/@media\(max-width:600px\)\{\s*\.dedication-banner/);
+ assert.doesNotMatch(html,/Dr\. Jyo/i);
+});
