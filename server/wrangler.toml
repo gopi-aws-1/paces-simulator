@@ -3,10 +3,10 @@ main = "worker.js"
 compatibility_date = "2026-10-17"
 
 [vars]
-ALLOWED_ORIGIN = "https://gopi-aws-1.github.io"
+ALLOWED_ORIGIN = "https://gopi-aws-1.github.io,https://jyogopi.com,https://www.jyogopi.com"
 REALTIME_MODEL = "gpt-realtime-2.1"
 ASSESSOR_MODEL = "gpt-5-mini"
-GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_TTS_MODEL = "gemini-3.1-flash-tts-preview"
 SPEECH_MODEL = "gpt-4o-mini-tts"
 

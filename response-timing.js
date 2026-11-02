@@ -3,7 +3,7 @@
  * The deadline includes both the network request and JSON body parsing.
  * Aborting avoids playing a stale response after the local fallback has begun.
  */
-export const PATIENT_REPLY_DEADLINE_MS = 5200;
+export const PATIENT_REPLY_DEADLINE_MS = 6500;
 export async function requestPatientReply(fetcher,url,options,deadlineMs=PATIENT_REPLY_DEADLINE_MS){
  const controller=new AbortController();
  let timer;

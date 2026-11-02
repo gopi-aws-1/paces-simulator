@@ -99,11 +99,12 @@ function wardScene(patient,position='lying'){
 const patients=[...base,...extraCases],$=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API_KEY='paces-ward-voice-api';
+const DEFAULT_API='https://paces-simulator.gopir3.workers.dev';
 let aiReplyUnavailableUntil=0; // Avoid repeated delays after a failed optional AI request.
 let patientPosition='lying';
-let api='',session=null,recognition=null,voice=null,token=0,cameraCanvas=null,cameraStream=null,cameraFrame=0,cameraVideo=null,sheet=null,videoCall=null,patientTalking=false,timer=null;
+let api=DEFAULT_API,session=null,recognition=null,voice=null,token=0,cameraCanvas=null,cameraStream=null,cameraFrame=0,cameraVideo=null,sheet=null,videoCall=null,patientTalking=false,timer=null;
 const speaker=new PatientSpeaker({onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);updatePatientPresence(state);},onStatus:announce});
-try{api=localStorage.getItem(API_KEY)||'';}catch{}
+try{api=localStorage.getItem(API_KEY)??DEFAULT_API;}catch{}
 function announce(s){const e=$('#liveStatus');if(e)e.textContent=s;}
 function speak(text,voiceIndex=0,done=()=>{},onStart=()=>{}){
  const n=token;
@@ -141,7 +142,7 @@ function home(){
  <button class="mode" id="one"><span class="mini-icon">◎</span><span class="mode-title">Practise One Case</span><span class="mode-desc">Choose a patient and start speaking straight away. One encounter at a time.</span><span class="mode-arrow">↗</span></button></div>
  <p class="choice-note">Full extended practice · 10 fictional patients · 10 minutes each · two simulated consultant perspectives</p>
  <fieldset class="feedback-preference"><legend>When would you like feedback from the consultants?</legend><label><input type="radio" name="feedbackTiming" value="end" checked><span><strong>At the end of the circuit</strong><small>Recommended for uninterrupted exam-style practice</small></span></label><label><input type="radio" name="feedbackTiming" value="each"><span><strong>After every patient</strong><small>Receive detailed grading before continuing</small></span></label></fieldset><div class="case-picker hide" id="picker"><label for="choice">Select a patient</label><select id="choice">${patients.map((p,i)=>`<option value="${i}">Case ${i+1}: ${esc(p.title)} · ${esc(p.kind)}</option>`).join('')}</select><button class="btn btn-main btn-large" style="margin-top:15px;width:100%" id="launch">Start This Case →</button></div>
- <details class="settings"><summary>Optional Gemini patient conversation setup</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The no-login demo works with expressive animated patient illustrations and gender-matched device voices. Mobile speech recognition varies by browser; typing always works. A protected speech service provides more natural AI voices when configured. For natural Gemini dialogue, deploy the secure Cloudflare Worker and set GEMINI_API_KEY as a secret. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><div class="gemini-actions"><button class="btn" id="saveEndpoint">Save URL</button><button class="btn" id="testGemini" type="button">Test Gemini connection</button></div><p id="geminiResult" class="gemini-result" role="status" aria-live="polite"></p></details>
+ <details class="settings"><summary>Gemini patient conversation connection</summary><label for="endpoint">Secure service URL (not an API key)</label><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" value="${esc(api)}"><p class="help">The no-login demo works with expressive animated patient illustrations and gender-matched device voices. Mobile speech recognition varies by browser; typing always works. A protected speech service provides more natural AI voices when configured. For natural Gemini dialogue, deploy the secure Cloudflare Worker and set GEMINI_API_KEY as a secret. For genuine interactive patient video, the server also needs a Tavus API key and PAL configured.</p><div class="gemini-actions"><button class="btn" id="saveEndpoint">Save URL</button><button class="btn" id="testGemini" type="button">Test Gemini connection</button></div><p id="geminiResult" class="gemini-result" role="status" aria-live="polite"></p></details>
  <p class="footnote">Independent educational simulation. The official PACES has eight encounters at five stations, assessed by two examiners per station. The ten-patient mode is additional training, not the official format. No real patient data.</p></div>`;
  $('#full').onclick=()=>begin('exam');$('#one').onclick=()=>{$('#picker').classList.toggle('hide');$('#picker').scrollIntoView({behavior:'smooth',block:'nearest'});};
  $('#launch').onclick=()=>begin('case',$('#choice').value);
@@ -291,7 +292,7 @@ async function typedReply(text){
     aiReplyUnavailableUntil=0;
     return data.answer.trim();
    }
-  }catch{/* Deadline or provider failure: switch to the local patient immediately. */}
+  }catch{/* Deadline or provider failure: switch to the local patient promptly. */}
   aiReplyUnavailableUntil=Date.now()+30000;
   announce('Using local patient replies while the AI service catches up.');
  }
@@ -318,8 +319,8 @@ async function askTyped(){
  const finish=()=>{
   if(session?.stage==='patient'&&c().id===caseId){input.disabled=false;if(submit)submit.disabled=false;}
  };
- log('patient',answer); // Show the response immediately, even if audio takes a moment.
- const started=()=>{if(session?.stage==='patient'&&c().id===caseId)updatePatientPresence(true);};
+ // Display the patient's words when speech actually begins, not seconds before.
+ const started=()=>{if(session?.stage==='patient'&&c().id===caseId){log('patient',answer);updatePatientPresence(true);}};
  if(voice?.active&&voice.mode==='browser'){
   voice.busy=true;
   try{voice.recognition?.abort();}catch{}
@@ -333,7 +334,7 @@ async function connect(){
   if(api&&await connectVideo()){announce('Live video connected. Speak inside the video call.');return;}
   voice=new VoiceRoom({onStatus:announce,onCandidate:t=>log('you',t),onPatient:t=>log('patient',t),onSpeaking:state=>{patientTalking=state;$('#bars')?.classList.toggle('active',state);updatePatientPresence(state);},speaker});
   await voice.connectBrowser(c(),typedReply,api);if(api)$('#videoMode').textContent='Hospital ward · Gemini dialogue';
-  $('#micState').textContent='● Mic connected';announce(api?'Microphone connected. Gemini dialogue and patient voice are enabled; audio may fall back to the device voice if Gemini TTS is unavailable.':'Browser microphone connected. Speak to your patient.');
+  $('#micState').textContent='● Mic connected';announce(api?'Microphone ready. Gemini is configured; if its service is unavailable, local replies and device speech remain available.':'Browser microphone connected. Speak to your patient.');
  }catch(e){announce('Could not start voice: '+(e.message||'Unknown error')+'. You can type instead.');}
  finally{if($('#talk'))b.disabled=false;}
 }
