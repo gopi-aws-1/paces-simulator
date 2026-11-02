@@ -71,10 +71,9 @@ export class VoiceRoom {
    let result;try{result=await this.reply(text);}catch{result='Sorry, could you repeat that, doctor?';}
    if(!this.active)return;
    if(typeof result!=='string'||!result.trim())result='Sorry, could you say that again?';
-   // Show the text as soon as it is ready; audio synthesis is a separate step.
-   this.onPatient(result);
-   this.status('Patient responding…');
-   this.say(result,()=>{this.busy=false;this.listen();});
+   // Keep the transcript in sync with the audible response.
+   this.status('Patient preparing a spoken response…');
+   this.say(result,()=>{this.busy=false;this.listen();},()=>this.onPatient(result));
   };
   recognition.onerror=e=>{if(!this.active)return;if(['not-allowed','service-not-allowed'].includes(e.error)){this.status('Microphone permission denied. Use text instead.');this.stop();}else this.status('Speech recognition: '+e.error+'. Try again if listening stops.');};
   recognition.onend=()=>{if(!this.active)return;/* Restart after silence, but not while the patient is speaking. */if(!this.busy&&!window.speechSynthesis.speaking)setTimeout(()=>{if(this.active&&this.recognition===recognition)this.listen();},400);};

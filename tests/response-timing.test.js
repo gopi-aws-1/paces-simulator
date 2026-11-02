@@ -46,7 +46,5 @@ test('spoken reply appears in the transcript without waiting for voice synthesis
  const ui=readFileSync(new URL('../demo.js',import.meta.url),'utf8');
  const voice=readFileSync(new URL('../voice.js',import.meta.url),'utf8');
  assert.match(ui,/const started=\(\)=>\{if\(session\?\.stage==='patient'&&c\(\)\.id===caseId\)\{log\('patient',answer\)/);
- const i=voice.indexOf('this.onPatient(result);');
- const j=voice.indexOf('this.say(result,');
- assert.ok(i>=0&&j>i,'Browser-microphone transcript should be available when the patient is ready to speak');
+ assert.match(voice,/this\.say\(result,\(\)=>\{this\.busy=false;this\.listen\(\);\},\(\)=>this\.onPatient\(result\)\)/);
 });
