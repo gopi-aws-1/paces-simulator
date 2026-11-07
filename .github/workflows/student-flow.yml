@@ -1,0 +1,24 @@
+name: Student journey browser end-to-end
+on:
+  push:
+    branches:
+      - 'audit-student-flow-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Launch static site
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/paces-server.log 2>&1 &
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/ >/dev/null && break || sleep 1; done
+      - run: node tests/student-flow.e2e.mjs
