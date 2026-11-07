@@ -121,6 +121,34 @@ async function main(){
   pass('mobile viewport has no horizontal overflow and early exit reaches review');
  }finally{await page.close();}
 
+
+ page=await newPage();
+ try{
+  await page.addInitScript(()=>{
+   class FakeRecognition{
+    start(){window.__pacerRecognition=this;}
+    abort(){this.onend?.();}
+   }
+   Object.defineProperty(window,'SpeechRecognition',{configurable:true,value:FakeRecognition});
+   Object.defineProperty(window,'webkitSpeechRecognition',{configurable:true,value:FakeRecognition});
+  });
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.locator('#one').click();
+  await page.locator('#launch').click();
+  await page.locator('#talk').click();
+  await page.waitForFunction(()=>!!window.__pacerRecognition?.onresult);
+  await page.evaluate(()=>{
+   window.__pacerRecognition.onresult({results:[[{transcript:'How long have you been coughing?'}]]});
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('.line.patient').length>=2);
+  assert.match(await page.locator('.line.you').last().textContent(),/coughing/i);
+  await page.locator('#mute').click();
+  assert.match(await page.locator('#micState').textContent(),/Muted/);
+  await page.locator('#end').click();
+  await page.getByText('SESSION COMPLETED').waitFor();
+  pass('hands-free simulated recognition captures student question, records patient reply, and safely mutes/finishes');
+ }finally{await page.close();}
+
  if(failures.length)throw new Error('Browser JavaScript errors: '+JSON.stringify(failures));
  console.log('ALL STUDENT JOURNEY TESTS PASSED');
 }
