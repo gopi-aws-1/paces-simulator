@@ -14,5 +14,5 @@ SPEECH_MODEL = "gpt-4o-mini-tts"
 name = "API_LIMITER"
 namespace_id = "10311"
   [ratelimits.simple]
-  limit = 8
+  limit = 18
   period = 60
