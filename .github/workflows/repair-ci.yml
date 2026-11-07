@@ -1,0 +1,19 @@
+name: PACES Ward repair regression tests
+on:
+  push:
+    branches:
+      - 'repair-client-demo-*'
+  pull_request:
+    branches:
+      - Movie-date
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test && npm run check
