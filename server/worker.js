@@ -61,7 +61,8 @@ async function geminiPatient(env,c,question,history){
  });
  // Avoid a discovery HTTP request on every new Worker instance. Fall back
  // to a known stable, low-latency text model only for an invalid model/config.
- const models=[...new Set([env.GEMINI_MODEL||'gemini-3.5-flash-lite','gemini-3.5-flash-lite'])];
+ // Try a second stable Flash-Lite release if a model is unavailable or rejects its configuration.
+ const models=[...new Set([env.GEMINI_MODEL||'gemini-3.5-flash-lite','gemini-3.5-flash-lite','gemini-3.1-flash-lite'])];
  let lastError;
  for(const model of models){
   let response;
