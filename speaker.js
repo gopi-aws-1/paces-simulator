@@ -53,11 +53,17 @@ export class PatientSpeaker {
      const AC=window.AudioContext||window.webkitAudioContext;
      if(AC){
       this.context??=new AC();
-      const source=this.context.createMediaElementSource(audio);
-      this.analyser=this.context.createAnalyser();this.analyser.fftSize=256;
-      source.connect(this.analyser);this.analyser.connect(this.context.destination);
-      this.samples=new Uint8Array(this.analyser.fftSize);
-      this.context.resume().catch(()=>{});
+      // Routing HTML audio into a suspended WebAudio context can silence it
+      // on mobile. Keep direct audio output unless the context is running.
+      if(this.context.state==='running'){
+       const source=this.context.createMediaElementSource(audio);
+       this.analyser=this.context.createAnalyser();this.analyser.fftSize=256;
+       source.connect(this.analyser);this.analyser.connect(this.context.destination);
+       this.samples=new Uint8Array(this.analyser.fftSize);
+      }else{
+       this.analyser=null;
+       this.context.resume().catch(()=>{});
+      }
      }
     }catch{this.analyser=null;}
     audio.onended=()=>{if(this.audioUrl===url){URL.revokeObjectURL(url);this.audioUrl=null;}finish();};
